@@ -20,7 +20,7 @@ LDFLAGS =
 
 ALL_CFLAGS = $(CFLAGS)
 
-all: loader telemetryDump logDump batCal
+all: loader telemetryDump logDump batCal l1Tool
 
 loader: loader.o serial.o stmbootloader.o
 	$(CC) -o loader $(ALL_CFLAGS) loader.o serial.o stmbootloader.o
@@ -33,6 +33,9 @@ logDump: logDump.o serial.o logger.o
 
 batCal: batCal.o logger.o
 	$(CC) -o batCal $(ALL_CFLAGS) batCal.o logger.o -L/opt/local/lib -lplplotd
+
+l1Tool: l1Tool.o
+	$(CC) -o l1Tool $(ALL_CFLAGS) l1Tool.o -lexpat
 
 loader.o: loader.c serial.h stmbootloader.h
 	$(CC) -c $(ALL_CFLAGS) loader.c
@@ -52,8 +55,11 @@ logDump.o: logDump.c logger.h
 batCal.o: batCal.cc
 	$(CC) -c $(ALL_CFLAGS) batCal.cc -I/opt/local/include -I/usr/local/include/eigen3
 
+l1Tool.o: l1Tool.cc
+	$(CC) -c $(ALL_CFLAGS) l1Tool.cc -I/usr/local/include/eigen3
+
 logger.o: logger.c logger.h
 	$(CC) -c $(ALL_CFLAGS) logger.c
 
 clean:
-	rm -f loader telemetryDump logDump batCal *.o
+	rm -f loader telemetryDump logDump batCal l1Tool *.o

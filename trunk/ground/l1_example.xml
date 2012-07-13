@@ -20,7 +20,7 @@
 			<motor>100</motor>
 			<esc>20</esc>
 			<arm>10</arm>
-			<cube name="center" dimx="0.08" dimy="0.08" dimz="0.08" offsetx="0" offsety="0" offsetz="0">685</cube>
+			<cube name="center" dimx="0.08" dimy="0.08" dimz="0.08" offsetx="0" offsety="0" offsetz="0">665</cube>
 		</mass>
 	</craft>
 	<craft id="big_hex" config="hex_plus">
@@ -34,16 +34,14 @@
 		</ports>
 		<distance>
 			<motor>0.406</motor>
-			<esc>0.220</esc>
+			<esc>0.230</esc>
 		</distance>
 		<mass>
 			<motor>125</motor>
 			<esc>30</esc>
 			<arm>30</arm>
-			<cube name="center" dimx="0.140" dimy="0.127" dimz="0.0889" offsetx="0" offsety="0" offsetz="0">1802</cube>
-<!--
-			<cube name="camera" dimx="0.1" dimy="0.1" dimz="0.1" offsetx="0" offsety="0" offsetz="-0.2">100</cube>
- -->
+			<cube name="center" dimx="0.140" dimy="0.127" dimz="0.065" offsetx="0" offsety="0" offsetz="-0.04">1802</cube>
+			<cube name="go-pro" dimx="0.06" dimy="0.03" dimz="0.04" offsetx="+0.0" offsety="+0.13" offsetz="-0.05">115</cube>
 		</mass>
 	</craft>
 </l1_configuration>

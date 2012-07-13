@@ -68,6 +68,8 @@ typedef struct {
 	char craftId[256];
 	int craftType;
 	int n;				// number of motors
+	double totalMass;
+	Vector3d offsetCG;
 	MatrixXd ports;
 	MatrixXd propDir;
 	MatrixXd motorX;
@@ -89,7 +91,7 @@ typedef struct {
 	MatrixXd PITCH, ROLL, YAW, THROT;
 	MatrixXd PD, M, Mt, PID;
 	double jX, jY, jZ;
-	MatrixXd J;
+	Matrix3d J;
 } l1Data_t;
 
 l1Data_t l1Data;
@@ -448,10 +450,124 @@ int l1ToolReadXML(FILE *fp) {
 	return 0;
 }
 
+typedef struct {
+	double mass;
+	double x, y, z;
+	double dimX, dimY, dimZ;
+} object_t;
+
+void l1ToolJCalc(Matrix3d &J, double mass, double x, double y, double z) {
+	Matrix3d S;
+
+/* Original from Wiki that has the x & y reversed to our standard
+	S <<	0,	-z,	y,
+		z,	0,	-x,
+		-y,	x,	0;
+*/
+
+	S <<	0,	-z,	x,
+		z,	0,	-y,
+		-x,	y,	0;
+
+	J = J - mass*(S*S);
+}
+
+// only cuboid so far
+void l1ToolShapeCalc(Matrix3d &J, object_t *obj) {
+	double mass;
+	int x, y, z;
+	int i, j, k;
+	
+	// divide dimentions into mm cubes
+	x = obj->dimX * 1000;
+	y = obj->dimY * 1000;
+	z = obj->dimZ * 1000;
+
+	mass = obj->mass / (double)(x * y * z);
+//printf("(%d, %d, %d) total mass %f point-mass used: %e\n", x, y, z, obj->mass, mass);
+
+	for (i = 0; i < x; i++)
+		for (j = 0; j < y; j++)
+			for (k = 0; k < z; k++)
+				l1ToolJCalc(J, mass,
+					obj->x - l1Data.offsetCG(0) - obj->dimX/2.0 + (double)i/1000.0,
+					obj->y - l1Data.offsetCG(1) - obj->dimX/2.0 + (double)j/1000.0,
+					obj->z - l1Data.offsetCG(2) - obj->dimX/2.0 + (double)k/1000.0);
+}
+
+void l1ToolObjCalc(VectorXd frameX, VectorXd frameY) {
+	object_t objs[256];
+	int o;
+	int i;
+
+	memset(objs, 0, sizeof(objs));
+
+	o = 0;
+	for (i = 0; i < l1Data.n; i++) {
+		// Motor
+		objs[o].mass = l1Data.massMot;
+		objs[o].x = frameX(i) * l1Data.distMot;
+		objs[o].y = frameY(i) * l1Data.distMot;
+		objs[o].z = 0.0;
+		o++;
+
+		// ESC
+		objs[o].mass = l1Data.massEsc;
+		objs[o].x = frameX(i) * l1Data.distEsc;
+		objs[o].y = frameY(i) * l1Data.distEsc;
+		objs[o].z = 0.0;
+		o++;
+
+		// ARM
+		objs[o].mass = l1Data.massArm;
+		objs[o].x = frameX(i) * l1Data.distMot / 2.0;
+		objs[o].y = frameY(i) * l1Data.distMot / 2.0;
+		objs[o].z = 0.0;
+		o++;
+	}
+
+	for (i = 0; i < l1Data.massObjects.size(); i++) {
+		objs[o].mass = l1Data.massObjects(i);
+		objs[o].x = l1Data.objectsOffset(i, 0);
+		objs[o].y = l1Data.objectsOffset(i, 1);
+		objs[o].z = l1Data.objectsOffset(i, 2);
+
+		objs[o].dimX = l1Data.objectsDim(i, 0);
+		objs[o].dimY = l1Data.objectsDim(i, 1);
+		objs[o].dimZ = l1Data.objectsDim(i, 2);
+		o++;
+	}
+
+	l1Data.totalMass = 0.0;
+	l1Data.offsetCG.setZero();
+	for (i = 0; i < o; i++) {
+		objs[i].mass /= 1000;			// g => Kg
+		l1Data.offsetCG(0) += objs[i].mass * objs[i].x;
+		l1Data.offsetCG(1) += objs[i].mass * objs[i].y;
+		l1Data.offsetCG(2) += objs[i].mass * objs[i].z;
+
+		l1Data.totalMass += objs[i].mass;
+	}
+	l1Data.offsetCG /= l1Data.totalMass;
+
+	printf("MASS [%d objs] = %f Kg\n", o, l1Data.totalMass);
+	printf("CG Offset = %f, %f, %f\n", l1Data.offsetCG(0), l1Data.offsetCG(1), l1Data.offsetCG(2));
+
+	// calculate J matrix
+	l1Data.J.setZero();
+	for (i = 0; i < o; i++)
+		if (objs[i].dimX != 0.0 && objs[i].dimY != 0.0 && objs[i].dimZ != 0.0)
+			//  dimentioned shapes
+			l1ToolShapeCalc(l1Data.J, &objs[i]);
+		else
+			// point masses
+			l1ToolJCalc(l1Data.J, objs[i].mass, objs[i].x - l1Data.offsetCG(0), objs[i].y - l1Data.offsetCG(1), objs[i].z - l1Data.offsetCG(2));
+}
+
 void l1ToolCalc(void) {
+	VectorXd frameX, frameY;
 	MatrixXd A;
 	MatrixXd B;
-	double mass;
 	float t, p, r, y;
 	int i, j;
 
@@ -461,43 +577,36 @@ void l1ToolCalc(void) {
 	l1Data.distEscs.resize(l1Data.n);
 	l1Data.angleArms.resize(l1Data.n);
 
+	frameX.resize(l1Data.n);
+	frameY.resize(l1Data.n);
+
 	// calculate x/y coordinates for each motor
 	switch (l1Data.craftType) {
 		case CONFIG_QUAD_PLUS:
-			l1Data.motorX << 0.0, 1.0, 0.0, -1.0;
-			l1Data.motorY << 1.0, 0.0, -1.0, 0.0;
+			frameX << 0.0, 1.0, 0.0, -1.0;
+			frameY << 1.0, 0.0, -1.0, 0.0;
 			break;
 		case CONFIG_QUAD_X:
-			l1Data.motorX << -sqrt(2.0)/2.0, sqrt(2.0)/2.0, sqrt(2.0)/2.0, -sqrt(2.0)/2.0;
-			l1Data.motorY << sqrt(2.0)/2.0, sqrt(2.0)/2.0, -sqrt(2.0)/2.0, -sqrt(2.0)/2.0;
+			frameX << -sqrt(2.0)/2.0, sqrt(2.0)/2.0, sqrt(2.0)/2.0, -sqrt(2.0)/2.0;
+			frameY << sqrt(2.0)/2.0, sqrt(2.0)/2.0, -sqrt(2.0)/2.0, -sqrt(2.0)/2.0;
 			break;
 		case CONFIG_HEX_PLUS:
-			l1Data.motorX << 0.0,	sqrt(3.0)/2.0,	sqrt(3.0)/2.0,	0.0,	-sqrt(3.0)/2.0,	-sqrt(3.0)/2.0;
-			l1Data.motorY << 1.0,	0.5,		-0.5,		-1.0,	-0.5,		0.5;
+			frameX << 0.0,	sqrt(3.0)/2.0,	sqrt(3.0)/2.0,	0.0,	-sqrt(3.0)/2.0,	-sqrt(3.0)/2.0;
+			frameY << 1.0,	0.5,		-0.5,		-1.0,	-0.5,		0.5;
 			break;
 	}
 
-	l1Data.motorX *= l1Data.distMot * -1.0;
-	l1Data.motorY *= l1Data.distMot;
+	// calc GG offset & J matrix
+	l1ToolObjCalc(frameX, frameY);
 
-	l1Data.massMots = MatrixXd::Ones(1, l1Data.n) * l1Data.massMot / 1000.0;	// g => Kg
-	l1Data.massArms = MatrixXd::Ones(1, l1Data.n) * l1Data.massArm / 1000.0;	// g => Kg
-	l1Data.massEscs = MatrixXd::Ones(1, l1Data.n) * l1Data.massEsc / 1000.0;	// g => Kg
-	l1Data.massObjects = l1Data.massObjects / 1000.0;				// g => Kg
+	l1Data.motorX = (frameX.transpose() * l1Data.distMot) * -1.0;
+	l1Data.motorY = (frameY.transpose() * l1Data.distMot);
+
+	// adjust for CG offset
+	l1Data.motorX -= VectorXd::Ones(l1Data.n) * l1Data.offsetCG(0);
+	l1Data.motorY -= VectorXd::Ones(l1Data.n) * l1Data.offsetCG(1);
 
 	l1Data.propDir *= -1.0;								// our sense of rotation is counter intuative
-
-	// calculate total weight
-	mass = 0.0;
-	for (i = 0; i < l1Data.n; i++) {
-		mass += l1Data.massMots(i);
-		mass += l1Data.massArms(i);
-		mass += l1Data.massEscs(i);
-	}
-	for (i = 0; i < l1Data.massObjects.size(); i++)
-		mass += l1Data.massObjects(i);
-
-	fprintf(outFP, "Total craft weight: %g Kg\n", mass);
 
 	for (i = 0; i < l1Data.n; i++) {
 		l1Data.distMots(i) = sqrt(l1Data.motorX(i)*l1Data.motorX(i) + l1Data.motorY(i)*l1Data.motorY(i));
@@ -573,47 +682,6 @@ void l1ToolCalc(void) {
 	// Mt
 	l1Data.Mt.resize(l1Data.n, 4);
 	l1Data.Mt << l1Data.THROT, l1Data.PD * (l1Data.M*l1Data.PD).inverse();
-
-	// J matrix
-	l1Data.jX = 0.0;
-	l1Data.jY = 0.0;
-	l1Data.jZ = 0.0;
-	for (i = 0; i < l1Data.n; i++) {
-		double sinA = sin(l1Data.angleArms(i));
-		double cosA = cos(l1Data.angleArms(i));
-
-		l1Data.jX = l1Data.jX +
-				sinA * l1Data.massArms(i) * l1Data.distMots(i)*l1Data.distMots(i) / 3.0 +
-				l1Data.massEscs(i) * l1Data.distEscs(i)*l1Data.distEscs(i) * sinA*sinA +
-				l1Data.massMots(i) * l1Data.motorX(i)*l1Data.motorX(i);
-		l1Data.jY = l1Data.jY +
-				cosA * l1Data.massArms(i) * l1Data.distMots(i)*l1Data.distMots(i) / 3.0 +
-				l1Data.massEscs(i) * l1Data.distEscs(i)*l1Data.distEscs(i) * cosA*cosA +
-				l1Data.massMots(i) * l1Data.motorY(i)*l1Data.motorY(i);
-		l1Data.jZ = l1Data.jZ +
-				l1Data.massMots(i) * l1Data.distMots(i)*l1Data.distMots(i) +
-				l1Data.massArms(i) * l1Data.distMots(i)*l1Data.distMots(i) / 3.0 +
-				l1Data.massEscs(i) * l1Data.distEscs(i)*l1Data.distEscs(i);
-	}
-
-	// add in extra object masses
-	for (i = 0; i < l1Data.massObjects.size(); i++) {
-		l1Data.jX += l1Data.massObjects(i) *
-				(l1Data.objectsDim(i, 1)*l1Data.objectsDim(i, 1) + l1Data.objectsDim(i, 2)*l1Data.objectsDim(i, 2)) /
-				12.0;
-		l1Data.jY += l1Data.massObjects(i) *
-				(l1Data.objectsDim(i, 0)*l1Data.objectsDim(i, 0) + l1Data.objectsDim(i, 2)*l1Data.objectsDim(i, 2)) /
-				12.0;
-		l1Data.jZ += l1Data.massObjects(i) *
-				(l1Data.objectsDim(i, 0)*l1Data.objectsDim(i, 0) + l1Data.objectsDim(i, 1)*l1Data.objectsDim(i, 1)) /
-				12.0;
-	}
-
-	l1Data.J.resize(3, 3);
-
-	l1Data.J <<	l1Data.jX,	0,		0,
-			0,		l1Data.jY,	0,
-			0,		0,		l1Data.jZ;
 
 	// PID
 	l1Data.PID.setZero(4, l1Data.n);

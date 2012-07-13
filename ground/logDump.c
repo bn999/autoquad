@@ -116,6 +116,7 @@ enum fields {
 	EXTRA2,
 	EXTRA3,
 	EXTRA4,
+	RADIO_QUALITY,
 	NUM_FIELDS
 };
 
@@ -171,7 +172,7 @@ void usage(void) {
 	fprintf(stderr, "usage: logDump [--help] [--plot] [--scale-min] [--scale-max] [ --micros --voltages --rates --accs --mags --pressures --temps\n");
 	fprintf(stderr, "		--aux-rates --aux-accs --aux-mags --vin\n");
 	fprintf(stderr, "		--gps-pos-micros --lat --lon --gps-alt --gps-pos-acc --gps-vel-micros --gps-vels --gps-vel-acc --quat\n");
-	fprintf(stderr, "		--poss --vels --motors --throttle --extras ] <log file>\n");
+	fprintf(stderr, "		--poss --vels --motors --throttle --extras --radio-quality] <log file>\n");
 }
 
 void logDumpOpts(int argc, char **argv) {
@@ -204,6 +205,7 @@ void logDumpOpts(int argc, char **argv) {
 		O_MOTORS,
 		O_THROTTLE,
 		O_EXTRAS,
+		O_RADIO_QUALITY,
 	};
 
         /* options descriptor */
@@ -237,6 +239,7 @@ void logDumpOpts(int argc, char **argv) {
                 {"motors",		no_argument,		&longOpt,	O_MOTORS},
                 {"throttle",		no_argument,		&longOpt,	O_THROTTLE},
                 {"extras",		no_argument,		&longOpt,	O_EXTRAS},
+                {"radio-quality",	no_argument,		&longOpt,	O_RADIO_QUALITY},
                 {NULL,          	0,                      NULL,		0}
 	};
 
@@ -387,6 +390,9 @@ void logDumpOpts(int argc, char **argv) {
 				dumpOrder[dumpNum++] = EXTRA2;
 				dumpOrder[dumpNum++] = EXTRA3;
 				dumpOrder[dumpNum++] = EXTRA4;
+				break;
+			case O_RADIO_QUALITY:
+				dumpOrder[dumpNum++] = RADIO_QUALITY;
 				break;
 			}
 			break;
@@ -610,17 +616,20 @@ double logDumpGetValue(loggerRecord_t *l, int field) {
 	case MOTOR9:
 		val = l->motors[8];
 		break;
-	case MOTOR11:
+	case MOTOR10:
 		val = l->motors[9];
 		break;
-	case MOTOR12:
+	case MOTOR11:
 		val = l->motors[10];
 		break;
-	case MOTOR13:
+	case MOTOR12:
 		val = l->motors[11];
 		break;
-	case MOTOR14:
+	case MOTOR13:
 		val = l->motors[12];
+		break;
+	case MOTOR14:
+		val = l->motors[13];
 		break;
 	case THROTTLE:
 		val = l->throttle;
@@ -637,6 +646,11 @@ double logDumpGetValue(loggerRecord_t *l, int field) {
 	case EXTRA4:
 		val = l->extra[3];
 		break;
+/*
+	case RADIO_QUALITY:
+		val = l->radioQuality;
+		break;
+*/
 	}
 
 	return val;
@@ -719,7 +733,6 @@ int main(int argc, char **argv) {
 
 		if (dumpPlot) {
 			count = 0;
-
 			// force header read
 			loggerReadEntry(lf, &logEntry);
 			rewind(lf);

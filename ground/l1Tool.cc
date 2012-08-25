@@ -46,13 +46,15 @@ enum {
 	CONFIG_QUAD_PLUS = 0,
 	CONFIG_QUAD_X,
 	CONFIG_HEX_PLUS,
+	CONFIG_HEX_X,
 	CONFIG_NUM
 };
 
 const char *configTypes[] = {
 	"quad_plus",
 	"quad_x",
-	"hex_plus"
+	"hex_plus",
+	"hex_x"
 };
 
 typedef struct {
@@ -190,6 +192,9 @@ void resetCraft(parseContext_t *context) {
 			n = 4;
 			break;
 		case CONFIG_HEX_PLUS:
+			n = 6;
+			break;
+		case CONFIG_HEX_X:
 			n = 6;
 			break;
 		default:
@@ -549,7 +554,6 @@ void l1ToolObjCalc(VectorXd frameX, VectorXd frameY) {
 		l1Data.totalMass += objs[i].mass;
 	}
 	l1Data.offsetCG /= l1Data.totalMass;
-
 	printf("MASS [%d objs] = %f Kg\n", o, l1Data.totalMass);
 	printf("CG Offset = %f, %f, %f\n", l1Data.offsetCG(0), l1Data.offsetCG(1), l1Data.offsetCG(2));
 
@@ -593,6 +597,10 @@ void l1ToolCalc(void) {
 		case CONFIG_HEX_PLUS:
 			frameX << 0.0,	sqrt(3.0)/2.0,	sqrt(3.0)/2.0,	0.0,	-sqrt(3.0)/2.0,	-sqrt(3.0)/2.0;
 			frameY << 1.0,	0.5,		-0.5,		-1.0,	-0.5,		0.5;
+			break;
+		case CONFIG_HEX_X:
+			frameX << -0.5,			0.5,		1.0,		0.5,	-0.5,		-1.0;
+			frameY << sqrt(3.0)/2.0,	sqrt(3.0)/2.0,	0.0,	-sqrt(3.0)/2.0,	-sqrt(3.0)/2.0,	0.0;
 			break;
 	}
 

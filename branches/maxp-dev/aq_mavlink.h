@@ -13,7 +13,7 @@
     You should have received a copy of the GNU General Public License
     along with AutoQuad.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright � 2011, 2012  Bill Nesbitt
+    Copyright © 2011, 2012  Bill Nesbitt
 */
 
 #ifndef _aq_mavlink_h
@@ -25,8 +25,6 @@
 #include "digital.h"
 #include "config.h"
 #include "../mavlink_types.h"
-
-#define MAVLINK_TELELEMETRY	// uncomment to enable mavlink telemetry data feature
 
 #define MAVLINK_STACK_SIZE		    280
 #define MAVLINK_PRIORITY		    40
@@ -74,12 +72,10 @@ typedef struct {
 
     unsigned long lastCounter;
 
-#ifdef MAVLINK_TELELEMETRY
     uint8_t sendTelemetry;  // enable/disable telemetry messages
     uint8_t indexTelemetry; // current index in telemetry sequence
     unsigned long telemetryFrequency; // how often to send data, in us
     unsigned long nextTelemetry; // micros counter for next data send
-#endif
 
 } mavlinkStruct_t;
 

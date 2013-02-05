@@ -67,6 +67,11 @@ void mavlinkDo(void) {
     static unsigned long mavCounter;
     static unsigned long lastMicros = 0;
     unsigned long micros;
+#ifdef MAVLINK_ENABLED_AUTOQUAD
+    uint8_t autopilotType = MAV_AUTOPILOT_AUTOQUAD;
+#else
+    uint8_t autopilotType = MAV_AUTOPILOT_GENERIC_WAYPOINTS_ONLY;
+#endif
 
     micros = timerMicros();
 
@@ -106,12 +111,12 @@ void mavlinkDo(void) {
     if (supervisorData.state & STATE_ARMED)
 	mavlinkData.mode = mavlinkData.mode | MAV_MODE_FLAG_SAFETY_ARMED;
 
-#ifdef MAVLINK_TELELEMETRY
+#ifdef MAVLINK_MSG_ID_AQ_TELEMETRY_F
     if ( !mavlinkData.sendTelemetry ) {
 #endif
     // heartbeat & status
     if (mavlinkData.nextHeartbeat < micros) {
-	mavlink_msg_heartbeat_send(MAVLINK_COMM_0, mavlink_system.type, MAV_AUTOPILOT_AUTOQUAD, mavlinkData.mode, mavlinkData.nav_mode, mavlinkData.status);
+	mavlink_msg_heartbeat_send(MAVLINK_COMM_0, mavlink_system.type, autopilotType, mavlinkData.mode, mavlinkData.nav_mode, mavlinkData.status);
 	// calculate idle time
 	mavCounter = counter;
 	mavlinkData.idlePercent = (mavCounter - mavlinkData.lastCounter) * minCycles * 1000.0f / (MAVLINK_HEARTBEAT_INTERVAL * rccClocks.SYSCLK_Frequency / 1e6f);
@@ -169,7 +174,7 @@ void mavlinkDo(void) {
 	mavlink_msg_mission_ack_send(MAVLINK_COMM_0, mavlinkData.wpTargetSysId, mavlinkData.wpTargetCompId, 0);
 	mavlinkData.wpCurrent++;
     }
-#ifdef MAVLINK_TELELEMETRY
+#ifdef MAVLINK_MSG_ID_AQ_TELEMETRY_F
     }
     else {
         if (( mavlinkData.nextTelemetry < micros ) || ( mavlinkData.indexTelemetry != 0 )) {
@@ -235,7 +240,7 @@ void mavlinkDoCommand(mavlink_message_t *msg) {
 
 	    break;
 
-#ifdef MAVLINK_TELELEMETRY
+#ifdef MAVLINK_MSG_ID_AQ_TELEMETRY_F
         case MAV_CMD_AQ_TELEMETRY:  // enable/disable telemetry data message and set frequency
             param = mavlink_msg_command_long_get_param1(msg);
             mavlinkData.telemetryFrequency = (unsigned long) mavlink_msg_command_long_get_param2(msg);
@@ -253,7 +258,7 @@ void mavlinkDoCommand(mavlink_message_t *msg) {
             break;
 #endif
 
-	case MAV_CMD_AQ_REQUEST_VERSION: // send firmware version number
+	case 4: // send firmware version number; should = MAV_CMD_AQ_REQUEST_VERSION
             sprintf(s, "AutoQuad version: %s r%d hwrev%d", VERSION, BUILDNUMBER, HARDWARE_REVISION);
 	    AQ_NOTICE(s);
 	    ack = MAV_CMD_ACK_OK;

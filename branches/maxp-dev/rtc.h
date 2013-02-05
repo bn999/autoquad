@@ -13,11 +13,22 @@
     You should have received a copy of the GNU General Public License
     along with AutoQuad.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright © 2011, 2012  Bill Nesbitt
+    Copyright Â© 2011, 2012  Bill Nesbitt
 */
 
 #ifndef _rtc_h
 #define _rtc_h
+
+#ifndef RTC_INIT_MASK
+    #define RTC_INIT_MASK	   ((uint32_t)0xFFFFFFFF)
+#endif
+
+#ifndef RTC_TR_RESERVED_MASK
+    #define RTC_TR_RESERVED_MASK    ((uint32_t)0x007F7F7F)
+#endif
+#ifndef RTC_DR_RESERVED_MASK
+    #define RTC_DR_RESERVED_MASK    ((uint32_t)0x00FFFF3F)
+#endif
 
 typedef struct {
     unsigned long lsiFrequency;
@@ -30,7 +41,7 @@ extern rtcStruct_t rtcData;
 
 extern void rtcInit(void);
 extern unsigned long rtcGetDateTime(void);
-extern void rtcSetDataTime(int year, int month, int day, int hour, int minute, int second);
+extern int rtcSetDataTime(int year, int month, int day, int hour, int minute, int second);
 extern void rtcSetDateTimeLong(unsigned long dateTime);
 
 #endif

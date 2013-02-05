@@ -13,30 +13,17 @@
     You should have received a copy of the GNU General Public License
     along with AutoQuad.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright © 2011, 2012  Bill Nesbitt
+    Copyright © 2011, 2012, 2013  Bill Nesbitt
 */
 
-#ifndef _notice_h
-#define _notice_h
+#ifndef GETBUILDNUM_H
+#define GETBUILDNUM_H
 
-#include "aq_mavlink.h"
-#include <CoOS.h>
+#include "buildnum.h"
 
-#define NOTICE_STACK_SIZE	64
-#define NOTICE_PRIORITY		50
+#define VERSION "6.6 - BETA"
 
-#define NOTICE_QUEUE_DEPTH	20
-
-typedef struct {
-    OS_TID noticeTask;
-    OS_EventID notices;
-    void *noticeQueue[NOTICE_QUEUE_DEPTH];
-    int8_t initialized;
-} noticeStruct_t;
-
-extern noticeStruct_t noticeData;
-
-extern void noticeInit(void);
-extern void noticeSend(const char *s);
+extern unsigned long  getBuildNumber(void);
+extern unsigned long  getRevisionNumber(void);
 
 #endif

@@ -1,2 +1,2 @@
-#define VERSION "6.6 - BETA"
-#define BUILDNUMBER 65
+#define BUILDNUMBER 1031
+#define REVISION "$Revision$"

@@ -85,14 +85,10 @@ typedef struct {
 	VectorXd massObjects;
 	double distMot;
 	double distEsc;
-	VectorXd angleArms;
-	VectorXd distMots;
-	VectorXd distEscs;
 	MatrixXd objectsDim;
 	MatrixXd objectsOffset;
 	MatrixXd PITCH, ROLL, YAW, THROT;
 	MatrixXd PD, M, Mt, PID;
-	double jX, jY, jZ;
 	Matrix3d J;
 } l1Data_t;
 
@@ -464,15 +460,15 @@ typedef struct {
 void l1ToolJCalc(Matrix3d &J, double mass, double x, double y, double z) {
 	Matrix3d S;
 
-/* Original from Wiki that has the x & y reversed to our standard
 	S <<	0,	-z,	y,
 		z,	0,	-x,
 		-y,	x,	0;
-*/
 
+/*
 	S <<	0,	-z,	x,
 		z,	0,	-y,
 		-x,	y,	0;
+*/
 
 	J = J - mass*(S*S);
 }
@@ -577,9 +573,6 @@ void l1ToolCalc(void) {
 
 	l1Data.motorX.resize(1, l1Data.n);
 	l1Data.motorY.resize(1, l1Data.n);
-	l1Data.distMots.resize(l1Data.n);
-	l1Data.distEscs.resize(l1Data.n);
-	l1Data.angleArms.resize(l1Data.n);
 
 	frameX.resize(l1Data.n);
 	frameY.resize(l1Data.n);
@@ -615,12 +608,6 @@ void l1ToolCalc(void) {
 	l1Data.motorY -= VectorXd::Ones(l1Data.n) * l1Data.offsetCG(1);
 
 	l1Data.propDir *= -1.0;								// our sense of rotation is counter intuative
-
-	for (i = 0; i < l1Data.n; i++) {
-		l1Data.distMots(i) = sqrt(l1Data.motorX(i)*l1Data.motorX(i) + l1Data.motorY(i)*l1Data.motorY(i));
-		l1Data.angleArms(i) = fabs(atan(l1Data.motorX(i) / l1Data.motorY(i)));
-		l1Data.distEscs(i) = l1Data.distMots(i) * (l1Data.distEsc / l1Data.distMot);
-	}
 
 	A.resize(3, l1Data.n);
 	B.resize(3, 1);

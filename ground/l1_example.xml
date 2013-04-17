@@ -5,6 +5,45 @@
 	-1 == CCW rotation
 -->
 <l1_configuration>
+        <craft id="mk_hex" config="hex_plus">
+                        <port rotation="+1">9</port>
+                        <port rotation="-1">13</port>
+                        <port rotation="+1">8</port>
+                        <port rotation="-1">1</port>
+                        <port rotation="+1">4</port>
+                        <port rotation="-1">2</port>
+                <distance>
+			<motor>0.29</motor>
+			<esc>0.14</esc>
+                </distance>
+		<mass>
+			<motor>74</motor>
+			<esc>20</esc>
+			<arm>25</arm>
+                        <cube name="center" dimx="0.12" dimy="0.12" dimz="0.03" offsetx="0" offsety="0" offsetz="0.0">292</cube>
+                        <cube name="bat1" dimx="0.14" dimy="0.05" dimz="0.022" offsetx="0" offsety="-0.045" offsetz="-0.055">354</cube>
+                        <cube name="bat2" dimx="0.14" dimy="0.05" dimz="0.022" offsetx="0" offsety="+0.045" offsetz="-0.055">354</cube>
+		</mass>
+	</craft>
+        <craft id="fcp" config="quad_plus">
+                <ports>
+                        <port rotation="-1">2</port>
+                        <port rotation="+1">9</port>
+                        <port rotation="-1">8</port>
+                        <port rotation="+1">1</port>
+                </ports>
+                <distance>
+                        <motor>0.29</motor>
+                        <esc>0.0</esc>
+                </distance>
+                <mass>
+                        <motor>115</motor>
+                        <esc>0</esc>
+                        <arm>33</arm>
+                        <cube name="center" dimx="0.14" dimy="0.14" dimz="0.03" offsetx="0" offsety="0" offsetz="-0.03">454</cube>
+                        <cube name="bat" dimx="0.05" dimy="0.14" dimz="0.03" offsetx="0" offsety="0" offsetz="-0.075">466</cube>
+                </mass>
+        </craft>
 	<craft id="tank" config="quad_plus">
 		<ports>
 			<port rotation="+1">1</port>
@@ -40,8 +79,11 @@
 			<motor>125</motor>
 			<esc>30</esc>
 			<arm>30</arm>
+			<cube name="center" dimx="0.140" dimy="0.127" dimz="0.080" offsetx="0" offsety="0" offsetz="-0.06">2212</cube>
+<!--
 			<cube name="center" dimx="0.140" dimy="0.127" dimz="0.065" offsetx="0" offsety="0" offsetz="-0.04">1802</cube>
 			<cube name="go-pro" dimx="0.06" dimy="0.03" dimz="0.04" offsetx="+0.0" offsety="+0.13" offsetz="-0.05">115</cube>
+-->>
 		</mass>
 	</craft>
 </l1_configuration>

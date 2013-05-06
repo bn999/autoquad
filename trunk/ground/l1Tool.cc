@@ -2,6 +2,7 @@
 #include <getopt.h>
 #include <expat.h>
 #include <iostream>
+#include <math.h>
 
 #define EIGEN_NO_DEBUG
 //#define EIGEN_DONT_VECTORIZE
@@ -14,6 +15,13 @@
 using namespace Eigen;
 
 #define MAX_DEPTH	16
+#define DEG_TO_RAD (M_PI / 180.0f)
+
+#define DEFAULT_MASS_ARM	80
+#define DEFAULT_MASS_MOTOR	100
+#define DEFAULT_MASS_ESC 	20
+#define DEFAULT_DIST_MOTOR	0.25
+#define DEFAULT_DIST_ESC	0.1
 
 enum {
 	ELEMENT_L1_CONFIGURATION = 0,
@@ -26,6 +34,7 @@ enum {
 	ELEMENT_ARM,
 	ELEMENT_ESC,
 	ELEMENT_CUBE,
+	ELEMENT_GEOMETRY,
 	ELEMENT_NUM
 };
 
@@ -39,7 +48,8 @@ const char *elementNames[] = {
 	"motor",
 	"arm",
 	"esc",
-	"cube"
+	"cube",
+	"geometry"
 };
 
 enum {
@@ -47,6 +57,9 @@ enum {
 	CONFIG_QUAD_X,
 	CONFIG_HEX_PLUS,
 	CONFIG_HEX_X,
+	CONFIG_OCTO_PLUS,
+	CONFIG_OCTO_X,
+	CONFIG_CUSTOM,
 	CONFIG_NUM
 };
 
@@ -54,7 +67,10 @@ const char *configTypes[] = {
 	"quad_plus",
 	"quad_x",
 	"hex_plus",
-	"hex_x"
+	"hex_x",
+	"octo_plus",
+	"octo_x",
+	"custom"
 };
 
 typedef struct {
@@ -70,10 +86,13 @@ typedef struct {
 	char craftId[256];
 	int craftType;
 	int n;				// number of motors
+	int configId;
 	double totalMass;
 	Vector3d offsetCG;
 	MatrixXd ports;
 	MatrixXd propDir;
+	VectorXd frameX;
+	VectorXd frameY;
 	MatrixXd motorX;
 	MatrixXd motorY;
 	double massEsc;
@@ -94,6 +113,7 @@ typedef struct {
 
 l1Data_t l1Data;
 int outputPID;
+int outputMIXfile;
 FILE *outFP;
 
 template<typename _Matrix_Type_>
@@ -178,32 +198,42 @@ void parse(XML_Parser parser, char c, int isFinal) {
 }
 
 void resetCraft(parseContext_t *context) {
+	if (!l1Data.n) {
 	int n;
-
 	switch (l1Data.craftType) {
 		case CONFIG_QUAD_PLUS:
-			n = 4;
-			break;
 		case CONFIG_QUAD_X:
 			n = 4;
 			break;
 		case CONFIG_HEX_PLUS:
+			case CONFIG_HEX_X:
 			n = 6;
 			break;
-		case CONFIG_HEX_X:
-			n = 6;
+			case CONFIG_OCTO_X:
+			case CONFIG_OCTO_PLUS:
+				n = 8;
 			break;
 		default:
 			context->validCraft = 0;
 			break;
 	}
 	l1Data.n = n;
+	}
 
-	l1Data.ports.setZero(1, n);
-	l1Data.propDir.setZero(1, n);
-	l1Data.massMots.setZero(n);
-	l1Data.massEscs.setZero(n);
-	l1Data.massArms.setZero(n);
+	l1Data.ports.setZero(1, l1Data.n);
+	l1Data.propDir.setZero(1, l1Data.n);
+	l1Data.massMots.setZero(l1Data.n);
+	l1Data.massEscs.setZero(l1Data.n);
+	l1Data.massArms.setZero(l1Data.n);
+	l1Data.frameX.resize(l1Data.n);
+	l1Data.frameY.resize(l1Data.n);
+
+	l1Data.massEsc = DEFAULT_MASS_ESC;
+	l1Data.massMot = DEFAULT_MASS_MOTOR;
+	l1Data.massArm = DEFAULT_MASS_ARM;
+	l1Data.distEsc = DEFAULT_DIST_ESC;
+	l1Data.distMot = DEFAULT_DIST_MOTOR;
+
 }
 
 void parseCube(parseContext_t *context, const XML_Char **atts) {
@@ -263,10 +293,42 @@ void parseCraft(parseContext_t *context, const XML_Char **atts) {
 				fprintf(stderr, "l1Tool: craft '%s' invalid config type '%s'\n", l1Data.craftId, att);
 			}
 			else {
+				if (l1Data.craftType == CONFIG_CUSTOM) {
+					att = l1ToolFindAttr(atts, "motors");
+					if (!att || !atoi(att)) {
+						fprintf(stderr, "l1Tool: craft '%s' custom type has missing/incorrect motors attribute\n", l1Data.craftId);
+						return;
+					}
+					l1Data.n = atoi(att);
+				}
+				att = l1ToolFindAttr(atts, "configId");
+				if (att)
+					l1Data.configId = atoi(att);
+				else
+					fprintf(stderr, "l1Tool: warning, craft '%s' is missing configId\n", l1Data.craftId);
+
 				context->validCraft = 1;
 				resetCraft(context);
 			}
 		}
+	}
+}
+
+void parseGeometryMotor(parseContext_t *context, const XML_Char **atts) {
+	const XML_Char *att;
+
+	att = l1ToolFindAttr(atts, "rotation");
+	if (!att) {
+		fprintf(stderr, "l1Tool: craft '%s' missing geometry->motor rotation attribute\n", l1Data.craftId);
+	}
+	else {
+		l1Data.propDir(0, context->n) = atoi(att);
+
+		att = l1ToolFindAttr(atts, "port");
+		if (!att || !atoi(att))
+			fprintf(stderr, "l1Tool: craft '%s' has missing/incorrect geometry->motor port attribute\n", l1Data.craftId);
+		else
+			l1Data.ports(0, context->n) = atoi(att);
 	}
 }
 
@@ -295,13 +357,22 @@ void XMLCALL startElement(void *ctx, const XML_Char *name, const XML_Char **atts
 				if (context->validCraft)
 					parsePort(context, atts);
 				break;
+			case ELEMENT_GEOMETRY:
+				if (context->validCraft)
+					context->n = 0;
+				break;
 			case ELEMENT_DISTANCE:
+				if (context->validCraft)
+					context->n = 0;
 				break;
 			case ELEMENT_MASS:
 				if (context->validCraft)
 					context->n = 0;
 				break;
 			case ELEMENT_MOTOR:
+				if (context->validCraft && context->elementIds[context->level-1] == ELEMENT_GEOMETRY) {
+					parseGeometryMotor(context, atts);
+				}
 				break;
 			case ELEMENT_ARM:
 				break;
@@ -342,6 +413,8 @@ void XMLCALL endElement(void *ctx, const XML_Char *name __attribute__((__unused_
 				context->n++;
 			}
 			break;
+		case ELEMENT_GEOMETRY:
+			break;
 		case ELEMENT_DISTANCE:
 			break;
 		case ELEMENT_MASS:
@@ -352,6 +425,11 @@ void XMLCALL endElement(void *ctx, const XML_Char *name __attribute__((__unused_
 					l1Data.massMot = atof(context->value);
 				else if (context->elementIds[context->level-1] == ELEMENT_DISTANCE)
 					l1Data.distMot = atof(context->value);
+				else if (context->elementIds[context->level-1] == ELEMENT_GEOMETRY) {
+					l1Data.frameX(context->n) = atof(std::strtok(context->value, ","));
+					l1Data.frameY(context->n) = atof(std::strtok(NULL, ","));
+					context->n++;
+				}
 			}
 			break;
 		case ELEMENT_ARM:
@@ -380,24 +458,29 @@ void XMLCALL endElement(void *ctx, const XML_Char *name __attribute__((__unused_
 }
 
 void l1ToolUsage(void) {
-	fprintf(stderr, "usage: l1Tool [-h | --help] [-c | --craft-id <craft_id>] [-p | --pid] [-o | --ouput <output_file>] xml_file\n");
+    fprintf(stderr, "\nusage: l1Tool	[-h | --help] [-c | --craft-id <craft_id>]\n");
+    fprintf(stderr, "		[-p | --pid] [-m | --mix] [-o | --ouput <output_file>] <xml_file>\n\n");
+    fprintf(stderr, "   using -m (output .mix file type for QGC) also implies -p\n");
+    fprintf(stderr, "   using -o without an argument will create an output file named <craft_id>\n");
 }
 
 unsigned int l1ToolOptions(int argc, char **argv) {
         int ch;
+	char fname[256]; // output file name
 
         /* options descriptor */
         static struct option longopts[] = {
                 { "help",       no_argument,            NULL,           'h' },
                 { "craft-id",	required_argument,      NULL,           'c' },
                 { "pid",	no_argument,		NULL,           'p' },
-                { "output",	required_argument,      NULL,           'o' },
+			{ "output",		optional_argument,	NULL,	'o' },
+			{ "mix",		no_argument,		NULL,	'm' },
                 { NULL,         0,                      NULL,           0 }
         };
 
 	outFP = stdout;
 
-        while ((ch = getopt_long(argc, argv, "hpo:c:", longopts, NULL)) != -1)
+	while ((ch = getopt_long(argc, argv, "hpmo::c:", longopts, NULL)) != -1)
                 switch (ch) {
                 case 'h':
                         l1ToolUsage();
@@ -406,8 +489,25 @@ unsigned int l1ToolOptions(int argc, char **argv) {
 		case 'p':
 			outputPID = 1;
 			break;
+		case 'm':
+			outputMIXfile = 1;
+			outputPID = 1;
+			break;
 		case 'o':
-			outFP = fopen(optarg, "w");
+			if (optarg == NULL && l1Data.craftId) {
+				strncpy(fname, l1Data.craftId, 250);
+				if (outputMIXfile)
+					strcat(fname, ".mix");
+				else
+					strcat(fname, ".param");
+			} else if (optarg != NULL)
+				strcpy(fname, optarg);
+			else {
+				fprintf(stderr, "l1Tool: cannot determine output file name\n");
+				exit(0);
+			}
+
+			outFP = fopen(fname, "w");
 			if (outFP == NULL) {
 				fprintf(stderr, "l1Tool: cannot open output file '%s'\n", optarg);
 				exit(0);
@@ -496,7 +596,7 @@ void l1ToolShapeCalc(Matrix3d &J, object_t *obj) {
 					obj->z - l1Data.offsetCG(2) - obj->dimX/2.0 + (double)k/1000.0);
 }
 
-void l1ToolObjCalc(VectorXd frameX, VectorXd frameY) {
+void l1ToolObjCalc() {
 	object_t objs[256];
 	int o;
 	int i;
@@ -507,22 +607,22 @@ void l1ToolObjCalc(VectorXd frameX, VectorXd frameY) {
 	for (i = 0; i < l1Data.n; i++) {
 		// Motor
 		objs[o].mass = l1Data.massMot;
-		objs[o].x = frameX(i) * l1Data.distMot;
-		objs[o].y = frameY(i) * l1Data.distMot;
+		objs[o].x = l1Data.frameX(i) * l1Data.distMot;
+		objs[o].y = l1Data.frameY(i) * l1Data.distMot;
 		objs[o].z = 0.0;
 		o++;
 
 		// ESC
 		objs[o].mass = l1Data.massEsc;
-		objs[o].x = frameX(i) * l1Data.distEsc;
-		objs[o].y = frameY(i) * l1Data.distEsc;
+		objs[o].x = l1Data.frameX(i) * l1Data.distEsc;
+		objs[o].y = l1Data.frameY(i) * l1Data.distEsc;
 		objs[o].z = 0.0;
 		o++;
 
 		// ARM
 		objs[o].mass = l1Data.massArm;
-		objs[o].x = frameX(i) * l1Data.distMot / 2.0;
-		objs[o].y = frameY(i) * l1Data.distMot / 2.0;
+		objs[o].x = l1Data.frameX(i) * l1Data.distMot / 2.0;
+		objs[o].y = l1Data.frameY(i) * l1Data.distMot / 2.0;
 		objs[o].z = 0.0;
 		o++;
 	}
@@ -550,14 +650,17 @@ void l1ToolObjCalc(VectorXd frameX, VectorXd frameY) {
 		l1Data.totalMass += objs[i].mass;
 	}
 	l1Data.offsetCG /= l1Data.totalMass;
+
+	if (!outputMIXfile) {
 	printf("MASS [%d objs] = %f Kg\n", o, l1Data.totalMass);
 	printf("CG Offset = %f, %f, %f\n", l1Data.offsetCG(0), l1Data.offsetCG(1), l1Data.offsetCG(2));
+	}
 
 	// calculate J matrix
 	l1Data.J.setZero();
 	for (i = 0; i < o; i++)
 		if (objs[i].dimX != 0.0 && objs[i].dimY != 0.0 && objs[i].dimZ != 0.0)
-			//  dimentioned shapes
+			//  dimensioned shapes
 			l1ToolShapeCalc(l1Data.J, &objs[i]);
 		else
 			// point masses
@@ -565,7 +668,7 @@ void l1ToolObjCalc(VectorXd frameX, VectorXd frameY) {
 }
 
 void l1ToolCalc(void) {
-	VectorXd frameX, frameY;
+//	VectorXd frameX, frameY;
 	MatrixXd A;
 	MatrixXd B;
 	float t, p, r, y;
@@ -574,40 +677,50 @@ void l1ToolCalc(void) {
 	l1Data.motorX.resize(1, l1Data.n);
 	l1Data.motorY.resize(1, l1Data.n);
 
-	frameX.resize(l1Data.n);
-	frameY.resize(l1Data.n);
+	//frameX.resize(l1Data.n);
+	//frameY.resize(l1Data.n);
 
 	// calculate x/y coordinates for each motor
 	switch (l1Data.craftType) {
 		case CONFIG_QUAD_PLUS:
-			frameX << 0.0, 1.0, 0.0, -1.0;
-			frameY << 1.0, 0.0, -1.0, 0.0;
+			l1Data.frameX << 0.0, 1.0, 0.0, -1.0;
+			l1Data.frameY << 1.0, 0.0, -1.0, 0.0;
 			break;
 		case CONFIG_QUAD_X:
-			frameX << -sqrt(2.0)/2.0, sqrt(2.0)/2.0, sqrt(2.0)/2.0, -sqrt(2.0)/2.0;
-			frameY << sqrt(2.0)/2.0, sqrt(2.0)/2.0, -sqrt(2.0)/2.0, -sqrt(2.0)/2.0;
+			l1Data.frameX << -1.0, 1.0, 1.0, -1.0; // -sqrt(2.0)/2.0, sqrt(2.0)/2.0, sqrt(2.0)/2.0, -sqrt(2.0)/2.0;
+			l1Data.frameY << 1.0, 1.0, -1.0, -1.0; // sqrt(2.0)/2.0, sqrt(2.0)/2.0, -sqrt(2.0)/2.0, -sqrt(2.0)/2.0;
 			break;
 		case CONFIG_HEX_PLUS:
-			frameX << 0.0,	sqrt(3.0)/2.0,	sqrt(3.0)/2.0,	0.0,	-sqrt(3.0)/2.0,	-sqrt(3.0)/2.0;
-			frameY << 1.0,	0.5,		-0.5,		-1.0,	-0.5,		0.5;
+			l1Data.frameX << 0.0,	sqrt(3.0)/2.0,	sqrt(3.0)/2.0,	0.0,	-sqrt(3.0)/2.0,	-sqrt(3.0)/2.0;
+			l1Data.frameY << 1.0, 0.5, -0.5, -1.0, -0.5, 0.5;
 			break;
 		case CONFIG_HEX_X:
-			frameX << -0.5,			0.5,		1.0,		0.5,	-0.5,		-1.0;
-			frameY << sqrt(3.0)/2.0,	sqrt(3.0)/2.0,	0.0,	-sqrt(3.0)/2.0,	-sqrt(3.0)/2.0,	0.0;
+			l1Data.frameX << -0.5,	0.5,	1.0,	0.5,	-0.5,	-1.0;
+			l1Data.frameY << sqrt(3.0)/2.0,	sqrt(3.0)/2.0,	0.0,	-sqrt(3.0)/2.0,	-sqrt(3.0)/2.0,	0.0;
+			break;
+		case CONFIG_OCTO_PLUS:
+			l1Data.frameX << 0,	cosf(315 *DEG_TO_RAD),	1,	cosf(45 *DEG_TO_RAD),	0,	cosf(135 *DEG_TO_RAD),	-1,	cosf(225 *DEG_TO_RAD);
+			l1Data.frameY << 1,	cosf(45 *DEG_TO_RAD),	0,	cosf(135 *DEG_TO_RAD),	-1,	cosf(225 *DEG_TO_RAD),	0,	cosf(315 *DEG_TO_RAD);
+			break;
+		case CONFIG_OCTO_X:
+			l1Data.frameX << cosf(247.5 *DEG_TO_RAD),	cosf(292.5 *DEG_TO_RAD),	cosf(337.5 *DEG_TO_RAD),	cosf(22.5 *DEG_TO_RAD),
+								cosf(67.5 *DEG_TO_RAD),		cosf(112.5 *DEG_TO_RAD),	cosf(157.5 *DEG_TO_RAD),	cosf(202.5 *DEG_TO_RAD);
+			l1Data.frameY << cosf(337.5 *DEG_TO_RAD),	cosf(22.5 *DEG_TO_RAD),		cosf(67.5 *DEG_TO_RAD),		cosf(112.5 *DEG_TO_RAD),
+								cosf(157.5 *DEG_TO_RAD),	cosf(202.5 *DEG_TO_RAD),	cosf(247.5 *DEG_TO_RAD),	cosf(292.5 *DEG_TO_RAD);
 			break;
 	}
 
 	// calc GG offset & J matrix
-	l1ToolObjCalc(frameX, frameY);
+	l1ToolObjCalc();
 
-	l1Data.motorX = (frameX.transpose() * l1Data.distMot) * -1.0;
-	l1Data.motorY = (frameY.transpose() * l1Data.distMot);
+	l1Data.motorX = (l1Data.frameX.transpose() * l1Data.distMot) * -1.0;
+	l1Data.motorY = (l1Data.frameY.transpose() * l1Data.distMot);
 
 	// adjust for CG offset
 	l1Data.motorX -= VectorXd::Ones(l1Data.n) * l1Data.offsetCG(0);
 	l1Data.motorY -= VectorXd::Ones(l1Data.n) * l1Data.offsetCG(1);
 
-	l1Data.propDir *= -1.0;								// our sense of rotation is counter intuative
+	l1Data.propDir *= -1.0;								// our sense of rotation is counter intuitive
 
 	A.resize(3, l1Data.n);
 	B.resize(3, 1);
@@ -688,6 +801,36 @@ void l1ToolCalc(void) {
 
 	if (outputPID) {
 		displayMatrix("PID", l1Data.PID);
+        if (outputMIXfile) { // output .mix file for QGC (.ini file format)
+            float val;
+
+            fprintf(outFP, "\n"); // blank line after "info" section
+            for (int ii=0; ii < 4; ii++) {  // loop over each control direction (T,P,R,Y)
+                switch (ii) {
+                case 0 :
+                    fprintf(outFP, "[Throttle]\n");
+                    break;
+                case 1 :
+                    fprintf(outFP, "[Pitch]\n");
+                    break;
+                case 2 :
+                    fprintf(outFP, "[Roll]\n");
+                    break;
+                case 3 :
+                    fprintf(outFP, "[Yaw]\n");
+                    break;
+                }
+                for (i = 1; i <= 14; i++) {
+                    val = 0.0f;
+                    j = l1ToolFindPort(i);
+                    if (j >= 0)
+                        val = l1Data.PID(j, ii);
+
+                    fprintf(outFP, "Motor%d=%g\n", i, round(val * 10000)/10000); // %g prints no trailing decimals when they're zero, unlike %f
+                }
+                fprintf(outFP, "\n"); // blank line ends section
+            }
+        } else { // output generated matrix and #defines for DEFAULT_MOT_PWRD params
 		for (i = 1; i <= 14; i++) {
 			t = 0.0;
 			p = 0.0;
@@ -706,6 +849,7 @@ void l1ToolCalc(void) {
 			fprintf(outFP, "#define DEFAULT_MOT_PWRD_%02d_R\t%+f\n", i, r);
 			fprintf(outFP, "#define DEFAULT_MOT_PWRD_%02d_Y\t%+f\n", i, y);
 		}
+	}
 	}
 	// otherwise show L1 results
 	else {
@@ -775,8 +919,13 @@ int main(int argc, char **argv) {
 	if (l1ToolReadXML(fp) < 0)
 		return -1;
 
-	fprintf(outFP, "Craft: '%s'\n", l1Data.craftId);
-	fprintf(outFP, "Motors: %d\n", l1Data.n);
+    if (outputMIXfile) {
+        fprintf(outFP, "[META]\n");
+        fprintf(outFP, "ConfigId=%d\n", l1Data.configId);
+    }
+
+	fprintf(outFP, "Craft=%s\n", l1Data.craftId);
+	fprintf(outFP, "Motors=%d\n", l1Data.n);
 /*
 	std::cout << "l1Data.ports: " << l1Data.ports << std::endl;
 	std::cout << "l1Data.propDir: " << l1Data.propDir << std::endl;

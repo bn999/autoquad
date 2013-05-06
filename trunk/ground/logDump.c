@@ -427,10 +427,6 @@ void logDumpOpts(int argc, char **argv) {
 					case O_TEMPS:
 						dumpHeaders[dumpNum] = "ADC_TEMP0";
 						dumpOrder[dumpNum++] = TEMP1;
-						dumpHeaders[dumpNum] = "ADC_TEMP1";
-						dumpOrder[dumpNum++] = TEMP2;
-						dumpHeaders[dumpNum] = "ADC_TEMP2";
-						dumpOrder[dumpNum++] = TEMP3;
 						break;
 					case O_VIN:
 						dumpHeaders[dumpNum] = "ADC_VIN";
@@ -501,10 +497,12 @@ void logDumpOpts(int argc, char **argv) {
 						dumpHeaders[dumpNum] = "GPS_EDOP";
 						dumpOrder[dumpNum++] = AUX_MAGZ;
 						break;
+/* Problem as TEMP4 is going away
 					case O_GPS_ITOW:
 						dumpHeaders[dumpNum] = "GPS_ITOW";
 						dumpOrder[dumpNum++] = TEMP4;
 						break;
+*/
 					case O_POSS:
 						dumpHeaders[dumpNum] = "UKF_POSN";
 						dumpOrder[dumpNum++] = POSN;
@@ -833,15 +831,6 @@ double logDumpGetValue(loggerRecord_t *l, int field) {
 		break;
 	case TEMP1:
 		val = l->temp[0];
-		break;
-	case TEMP2:
-		val = l->temp[1];
-		break;
-	case TEMP3:
-		val = l->temp[2];
-		break;
-	case TEMP4:
-		val = l->temp[3];
 		break;
 	case AUX_RATEX:
 		val = l->rateAux[0];

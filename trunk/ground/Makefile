@@ -20,46 +20,87 @@ LDFLAGS =
 
 ALL_CFLAGS = $(CFLAGS)
 
+# BUILD_PATH = .
+BUILD_PATH = ../build
+
+# Linux/OS X
+#LIBPATH = /opt/local/lib
+#INCPATH = /opt/local/include
+#MAVLINK = ../mavlink/include/common
+#EXPAT_LIB = expat
+#PLPLOT_LIB = plplotd
+#EIGEN = /usr/local/include/eigen3
+
+# Windows
+LIBPATH = ../../../lib
+INCPATH = .
+MAVLINK = $(LIBPATH)/mavlink/include/common
+EXPAT = $(LIBPATH)/expat
+EXPAT_LIB = libexpat
+EIGEN = $(LIBPATH)/eigen
+
+
+# Targets
+
 all: loader telemetryDump logDump batCal l1Tool
 
-loader: loader.o serial.o stmbootloader.o
-	$(CC) -o loader $(ALL_CFLAGS) loader.o serial.o stmbootloader.o
+all-win: logDump-win l1Tool-win
 
-telemetryDump: telemetryDump.o serial.o
-	$(CC) -o telemetryDump $(ALL_CFLAGS) telemetryDump.o serial.o
+loader: $(BUILD_PATH)/loader.o $(BUILD_PATH)/serial.o $(BUILD_PATH)/stmbootloader.o
+	$(CC) -o $(BUILD_PATH)/loader $(ALL_CFLAGS) $(BUILD_PATH)/loader.o $(BUILD_PATH)/serial.o $(BUILD_PATH)/stmbootloader.o
 
-logDump: logDump.o serial.o logger.o
-	$(CC) -o logDump $(ALL_CFLAGS) logDump.o serial.o logger.o -L/opt/local/lib -lplplotd
+telemetryDump: $(BUILD_PATH)/telemetryDump.o $(BUILD_PATH)/serial.o
+	$(CC) -o $(BUILD_PATH)/telemetryDump $(ALL_CFLAGS) $(BUILD_PATH)/telemetryDump.o $(BUILD_PATH)/serial.o
 
-batCal: batCal.o logger.o
-	$(CC) -o batCal $(ALL_CFLAGS) batCal.o logger.o -L/opt/local/lib -lplplotd
+logDump: $(BUILD_PATH)/logDump.o $(BUILD_PATH)/serial.o $(BUILD_PATH)/logger.o
+	$(CC) -o $(BUILD_PATH)/logDump $(ALL_CFLAGS) $(BUILD_PATH)/logDump.o $(BUILD_PATH)/serial.o $(BUILD_PATH)/logger.o -L$(LIBPATH) -l$(PLPLOT_LIB)
 
-l1Tool: l1Tool.o
-	$(CC) -o l1Tool $(ALL_CFLAGS) l1Tool.o -lexpat
+logDump-win: $(BUILD_PATH)/logDump-win.o $(BUILD_PATH)/logger.o $(BUILD_PATH)/logDump_mavlink.o
+	$(CC) -o $(BUILD_PATH)/logDump.exe $(ALL_CFLAGS) $(BUILD_PATH)/logDump-win.o $(BUILD_PATH)/logger.o $(BUILD_PATH)/logDump_mavlink.o
 
-loader.o: loader.c serial.h stmbootloader.h
-	$(CC) -c $(ALL_CFLAGS) loader.c
+batCal: $(BUILD_PATH)/batCal.o $(BUILD_PATH)/logger.o
+	$(CC) -o batCal $(ALL_CFLAGS) $(BUILD_PATH)/batCal.o $(BUILD_PATH)/logger.o -L$(LIBPATH) -l$(PLPLOT_LIB)
 
-stmbootloader.o: stmbootloader.c stmbootloader.h serial.o
-	$(CC) -c $(ALL_CFLAGS) stmbootloader.c
+l1Tool: $(BUILD_PATH)/l1Tool.o
+	$(CC) -o $(BUILD_PATH)/l1Tool $(ALL_CFLAGS) $(BUILD_PATH)/l1Tool.o -l$(EXPAT_LIB)
 
-serial.o: serial.c serial.h
-	$(CC) -c $(ALL_CFLAGS) serial.c
+l1Tool-win: $(BUILD_PATH)/l1Tool-win.o
+	$(CC) -o $(BUILD_PATH)/l1Tool.exe $(ALL_CFLAGS) $(BUILD_PATH)/l1Tool.o -L$(EXPAT) -l$(EXPAT_LIB)
 
-telemetryDump.o: telemetryDump.c telemetryDump.h
-	$(CC) -c $(ALL_CFLAGS) telemetryDump.c
 
-logDump.o: logDump.c logger.h
-	$(CC) -c $(ALL_CFLAGS) logDump.c -I/opt/local/include
 
-batCal.o: batCal.cc
-	$(CC) -c $(ALL_CFLAGS) batCal.cc -I/opt/local/include -I/usr/local/include/eigen3
+$(BUILD_PATH)/loader.o: loader.c serial.h stmbootloader.h
+	$(CC) -c $(ALL_CFLAGS) loader.c -o $@
 
-l1Tool.o: l1Tool.cc
-	$(CC) -c $(ALL_CFLAGS) l1Tool.cc -I/usr/local/include/eigen3
+$(BUILD_PATH)/stmbootloader.o: stmbootloader.c stmbootloader.h serial.o
+	$(CC) -c $(ALL_CFLAGS) stmbootloader.c -o $@
 
-logger.o: logger.c logger.h
-	$(CC) -c $(ALL_CFLAGS) logger.c
+$(BUILD_PATH)/serial.o: serial.c serial.h
+	$(CC) -c $(ALL_CFLAGS) serial.c -o $@
+
+$(BUILD_PATH)/telemetryDump.o: telemetryDump.c telemetryDump.h
+	$(CC) -c $(ALL_CFLAGS) telemetryDump.c -o $@
+
+$(BUILD_PATH)/logDump.o: logDump.c logDump_templates.h logger.h
+	$(CC) -c $(ALL_CFLAGS) logDump.c -o $@ -I$(INCPATH) -DHAS_PLPLOT
+
+$(BUILD_PATH)/logDump-win.o: logDump.c logDump_templates.h logDump.h logger.h logDump_mavlink.h
+	$(CC) -c $(ALL_CFLAGS) logDump.c -o $@ -I$(MAVLINK)
+
+$(BUILD_PATH)/batCal.o: batCal.cc
+	$(CC) -c $(ALL_CFLAGS) batCal.cc -o $@ -I$(INCPATH) -I$(EIGEN)
+
+$(BUILD_PATH)/l1Tool.o: l1Tool.cc
+	$(CC) -c $(ALL_CFLAGS) l1Tool.cc -o $@ -I$(EIGEN)
+
+$(BUILD_PATH)/l1Tool-win.o: l1Tool.cc
+	$(CC) -c -g -O2 l1Tool.cc -o $(BUILD_PATH)/l1Tool.o -I$(EXPAT)/src -I$(EIGEN)
+
+$(BUILD_PATH)/logger.o: logger.c logger.h
+	$(CC) -c $(ALL_CFLAGS) logger.c -o $@
+
+$(BUILD_PATH)/logDump_mavlink.o: logDump_mavlink.cpp logDump_mavlink.h
+	$(CC) -c $(ALL_CFLAGS) logDump_mavlink.cpp -o $@ -I$(MAVLINK)
 
 clean:
-	rm -f loader telemetryDump logDump batCal l1Tool *.o
+	rm -f $(BUILD_PATH)/loader $(BUILD_PATH)/telemetryDump $(BUILD_PATH)/logDump $(BUILD_PATH)/batCal $(BUILD_PATH)/l1Tool $(BUILD_PATH)/*.o $(BUILD_PATH)/*.exe

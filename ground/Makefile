@@ -53,7 +53,7 @@ telemetryDump: $(BUILD_PATH)/telemetryDump.o $(BUILD_PATH)/serial.o
 	$(CC) -o $(BUILD_PATH)/telemetryDump $(ALL_CFLAGS) $(BUILD_PATH)/telemetryDump.o $(BUILD_PATH)/serial.o
 
 logDump: $(BUILD_PATH)/logDump.o $(BUILD_PATH)/serial.o $(BUILD_PATH)/logger.o
-	$(CC) -o $(BUILD_PATH)/logDump $(ALL_CFLAGS) $(BUILD_PATH)/logDump.o $(BUILD_PATH)/serial.o $(BUILD_PATH)/logger.o -L$(LIBPATH) -l$(PLPLOT_LIB)
+	$(CC) -o $(BUILD_PATH)/logDump $(ALL_CFLAGS) $(BUILD_PATH)/logDump.o $(BUILD_PATH)/serial.o $(BUILD_PATH)/logger.o -L$(LIBPATH) -l$(PLPLOT_LIB) -DHAS_PLPLOT
 
 logDump-win: $(BUILD_PATH)/logDump-win.o $(BUILD_PATH)/logger.o $(BUILD_PATH)/logDump_mavlink.o
 	$(CC) -o $(BUILD_PATH)/logDump.exe $(ALL_CFLAGS) $(BUILD_PATH)/logDump-win.o $(BUILD_PATH)/logger.o $(BUILD_PATH)/logDump_mavlink.o

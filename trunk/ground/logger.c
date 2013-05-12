@@ -174,12 +174,6 @@ void loggerDecodePacket(char *buf, loggerRecord_t *r) {
 			case LOG_ADC_TEMP0:
 				r->temp[0] = *(float *)buf;
 				break;
-			case LOG_ADC_TEMP1:
-				r->temp[1] = *(float *)buf;
-				break;
-			case LOG_ADC_TEMP2:
-				r->temp[2] = *(float *)buf;
-				break;
 			case LOG_ADC_VIN:
 				r->vIn = *(float *)buf;
 				break;

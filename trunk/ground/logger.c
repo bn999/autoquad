@@ -130,7 +130,7 @@ void loggerDecodePacket(char *buf, loggerRecord_t *r) {
 				r->magAux[2] = *(float *)buf;
 				break;
 			case LOG_GPS_ITOW:
-				r->temp[3] = *(unsigned int *)buf;
+				r->gpsItow = *(unsigned int *)buf;
 				break;
 			case LOG_GPS_POS_UPDATE:
 				r->gpsPosUpdate = *(unsigned int *)buf;
@@ -148,7 +148,7 @@ void loggerDecodePacket(char *buf, loggerRecord_t *r) {
 				r->gpsPosAcc = *(float *)buf;
 				break;
 			case LOG_GPS_VACC:
-				r->extra[1] = *(float *)buf;
+				r->gpsVAcc = *(float *)buf;
 				break;
 			case LOG_GPS_VEL_UPDATE:
 				r->gpsVelUpdate = *(unsigned int *)buf;
@@ -178,7 +178,7 @@ void loggerDecodePacket(char *buf, loggerRecord_t *r) {
 				r->vIn = *(float *)buf;
 				break;
 			case LOG_ADC_MAG_SIGN:
-				r->extra[0] = (float)*(char *)buf;
+				r->magSign = (float)*(char *)buf;
 				break;
 			case LOG_UKF_Q1:
 				r->quat[0] = *(float *)buf;
@@ -202,10 +202,10 @@ void loggerDecodePacket(char *buf, loggerRecord_t *r) {
 				r->pos[2] = *(float *)buf;
 				break;
 			case LOG_UKF_PRES_ALT:
-				r->extra[3] = *(float *)buf;
+				r->pressAlt = *(float *)buf;
 				break;
 			case LOG_UKF_ALT:
-				r->extra[2] = *(float *)buf;
+				r->ukfAlt = *(float *)buf;
 				break;
 			case LOG_UKF_VELN:
 				r->vel[0] = *(float *)buf;

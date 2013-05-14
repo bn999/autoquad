@@ -109,7 +109,7 @@ Values (at least one is required unless --gps-track is used):\n\
  --mag-sign	ADC_MAG_SIGN.\n\
  --pressures	Pressure 1, pressure 2.\n\
  --pres-alt	UKF_ALT and UKF_PRES_ALT.\n\
- --temps	Temperatures 0-2.\n\
+ --temps	Board temperature\n\
  --vin		Battery voltage.\n\
  --quat		Quaternions.\n\
  --poss		UKF positions N, E, & D.\n\
@@ -180,7 +180,7 @@ void logDumpOpts(int argc, char **argv) {
 		O_MOTORS,
 		O_THROTTLE,
 		O_PRY,
-		O_EXTRAS,
+//		O_EXTRAS,
 		O_RADIO_QUALITY,
 		O_RADIO_CHAN_8,
 		O_RADIO_CHAN_GT8,
@@ -237,7 +237,7 @@ void logDumpOpts(int argc, char **argv) {
                 {"motors",			no_argument,		&longOpt,	O_MOTORS},
                 {"throttle",		no_argument,		&longOpt,	O_THROTTLE},
                 {"out-pry",			no_argument,		&longOpt,	O_PRY},
-                {"extras",			no_argument,		&longOpt,	O_EXTRAS},
+//                {"extras",			no_argument,		&longOpt,	O_EXTRAS},
                 {"radio-quality",	no_argument,		&longOpt,	O_RADIO_QUALITY},
                 {"radio-chan-8",	no_argument,		&longOpt,	O_RADIO_CHAN_8},
                 {"radio-chan-gt8",	no_argument,		&longOpt,	O_RADIO_CHAN_GT8},
@@ -410,7 +410,7 @@ void logDumpOpts(int argc, char **argv) {
 						break;
 					case O_MAG_SIGN:
 						dumpHeaders[dumpNum] = "ADC_MAG_SIGN";
-						dumpOrder[dumpNum++] = EXTRA1;
+						dumpOrder[dumpNum++] = ADC_MAG_SIGN;
 						break;
 					case O_PRESSURES:
 						dumpHeaders[dumpNum] = "ADC_PRESSURE1";
@@ -420,9 +420,9 @@ void logDumpOpts(int argc, char **argv) {
 						break;
 					case O_PRES_ALT:
 						dumpHeaders[dumpNum] = "UKF_ALT";
-						dumpOrder[dumpNum++] = EXTRA3;
+						dumpOrder[dumpNum++] = UKF_ALT;
 						dumpHeaders[dumpNum] = "UKF_PRES_ALT";
-						dumpOrder[dumpNum++] = EXTRA4;
+						dumpOrder[dumpNum++] = UKF_PRES_ALT;
 						break;
 					case O_TEMPS:
 						dumpHeaders[dumpNum] = "ADC_TEMP0";
@@ -460,7 +460,7 @@ void logDumpOpts(int argc, char **argv) {
 						break;
 					case O_GPS_VERT_ACC:
 						dumpHeaders[dumpNum] = "GPS_VACC";
-						dumpOrder[dumpNum++] = EXTRA2;
+						dumpOrder[dumpNum++] = GPS_VACC;
 						break;
 					case O_GPS_VEL_MICROS:
 						dumpHeaders[dumpNum] = "GPS_VEL_UPDATE";
@@ -497,12 +497,10 @@ void logDumpOpts(int argc, char **argv) {
 						dumpHeaders[dumpNum] = "GPS_EDOP";
 						dumpOrder[dumpNum++] = AUX_MAGZ;
 						break;
-/* Problem as TEMP4 is going away
 					case O_GPS_ITOW:
 						dumpHeaders[dumpNum] = "GPS_ITOW";
-						dumpOrder[dumpNum++] = TEMP4;
+						dumpOrder[dumpNum++] = GPS_ITOW;
 						break;
-*/
 					case O_POSS:
 						dumpHeaders[dumpNum] = "UKF_POSN";
 						dumpOrder[dumpNum++] = POSN;
@@ -571,19 +569,23 @@ void logDumpOpts(int argc, char **argv) {
 						dumpHeaders[dumpNum] = "MOT_YAW";
 						dumpOrder[dumpNum++] = AUX_ACCZ;
 						break;
+/*
 					case O_EXTRAS:
-						dumpHeaders[dumpNum] = "MAG_SIGN";
-						dumpOrder[dumpNum++] = EXTRA1;
+						dumpHeaders[dumpNum] = "ADC_MAG_SIGN";
+						dumpOrder[dumpNum++] = ADC_MAG_SIGN;
 						dumpHeaders[dumpNum] = "GPS_VACC";
-						dumpOrder[dumpNum++] = EXTRA2;
+						dumpOrder[dumpNum++] = GPS_VACC;
 						dumpHeaders[dumpNum] = "UKF_ALT";
-						dumpOrder[dumpNum++] = EXTRA3;
+						dumpOrder[dumpNum++] = UKF_ALT;
 						dumpHeaders[dumpNum] = "UKF_PRES_ALT";
-						dumpOrder[dumpNum++] = EXTRA4;
+						dumpOrder[dumpNum++] = UKF_PRES_ALT;
 						break;
+*/
 					case O_RADIO_QUALITY:
 						dumpHeaders[dumpNum] = "RADIO_QUALITY";
 						dumpOrder[dumpNum++] = RADIO_QUALITY;
+						dumpHeaders[dumpNum] = "RADIO_ERRORS";
+						dumpOrder[dumpNum++] = RADIO_ERRORS;
 						break;
 					case O_RADIO_CHAN_8:
 						dumpHeaders[dumpNum] = "RADIO_CHANNEL0";
@@ -832,6 +834,12 @@ double logDumpGetValue(loggerRecord_t *l, int field) {
 	case TEMP1:
 		val = l->temp[0];
 		break;
+	case TEMP2:
+		val = l->temp[1];
+		break;
+	case TEMP3:
+		val = l->temp[2];
+		break;
 	case AUX_RATEX:
 		val = l->rateAux[0];
 		break;
@@ -862,6 +870,9 @@ double logDumpGetValue(loggerRecord_t *l, int field) {
 	case VIN:
 		val = l->vIn;
 		break;
+	case ADC_MAG_SIGN:
+		val = l->magSign;
+		break;
 	case GPS_POS_MICROS:
 		val = l->gpsPosUpdate;
 		break;
@@ -876,6 +887,9 @@ double logDumpGetValue(loggerRecord_t *l, int field) {
 		break;
 	case GPS_POS_ACC:
 		val = l->gpsPosAcc;
+		break;
+	case GPS_VACC:
+		val = l->gpsVAcc;
 		break;
 	case GPS_VEL_MICROS:
 		val = l->gpsVelUpdate;
@@ -900,6 +914,12 @@ double logDumpGetValue(loggerRecord_t *l, int field) {
 		break;
 	case POSD:
 		val = l->pos[2];
+		break;
+	case UKF_ALT:
+		val = l->ukfAlt;
+		break;
+	case UKF_PRES_ALT:
+		val = l->pressAlt;
 		break;
 	case VELN:
 		val = l->vel[0];
@@ -967,6 +987,7 @@ double logDumpGetValue(loggerRecord_t *l, int field) {
 	case THROTTLE:
 		val = l->throttle;
 		break;
+/*
 	case EXTRA1:
 		val = l->extra[0];
 		break;
@@ -979,6 +1000,7 @@ double logDumpGetValue(loggerRecord_t *l, int field) {
 	case EXTRA4:
 		val = l->extra[3];
 		break;
+*/
 	case RADIO_CHANNEL1:
 		val = l->radioChannels[0];
 		break;
@@ -1036,11 +1058,15 @@ double logDumpGetValue(loggerRecord_t *l, int field) {
 	case RADIO_QUALITY:
 		val = l->radioQuality;
 		break;
+	case RADIO_ERRORS:
+		val = l->radioErrors;
+		break;
 	case GPS_H_SPEED:
 		val = (fabs(l->gpsVel[0]) + fabs(l->gpsVel[1])); // * 3600 / 1000; // km/h
 		break;
 	case GPS_UTC_TIME:
-		val = l->temp[3]; // GPS_ITOW
+	case GPS_ITOW:
+		val = l->gpsItow;
 		break;
 	case CAM_TRIGGER:
 		if ( camTrigChannel > 0 && camTrigChannel < 19 && (
@@ -1131,7 +1157,7 @@ void logDumpText(loggerRecord_t *l) {
 		if (!gpsTrackUsePresAlt)
 		exp.alt = logDumpGetValue(l, GPS_ALT);
 		else
-			exp.alt = logDumpGetValue(l, EXTRA4) + gpsTrackPresAltOffset;
+			exp.alt = logDumpGetValue(l, UKF_PRES_ALT) + gpsTrackPresAltOffset;
 		exp.speed = logDumpGetValue(l, GPS_H_SPEED);
 		exp.climb = logDumpGetValue(l, VELD);
 		exp.hdg = logDumpGetValue(l, YAW);
@@ -1430,7 +1456,7 @@ int main(int argc, char **argv) {
 			while (loggerReadEntry(lf, &logEntry) != EOF) {
 				if ( !(count % outputFreqDivisor) &&
 						( !dumpTriggeredOnly || logDumpGetValue(&logEntry, CAM_TRIGGER) ) &&
-						( !dumpGpsTrack || ( logDumpGetValue(&logEntry, GPS_POS_ACC) <= gpsTrackMinHAcc && logDumpGetValue(&logEntry, EXTRA2) <= gpsTrackMinVAcc) ) ) {
+						( !dumpGpsTrack || ( logDumpGetValue(&logEntry, GPS_POS_ACC) <= gpsTrackMinHAcc && logDumpGetValue(&logEntry, GPS_VACC) <= gpsTrackMinVAcc) ) ) {
 					logDumpText(&logEntry);
 					cntExpSamples++; // count actual exported samples
 					// send progress indication

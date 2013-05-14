@@ -178,6 +178,10 @@ typedef struct {
 	float rateAux[3];
 	float accAux[3];
 	float magAux[3];
+	float magSign;
+	float ukfAlt;
+	float pressAlt;
+
 	unsigned int gpsPosUpdate;
 	double lat, lon;
 	float gpsAlt;
@@ -185,11 +189,14 @@ typedef struct {
 	unsigned int gpsVelUpdate;
 	float gpsVel[3];
 	float gpsVelAcc;
+	float gpsVAcc;
+	float gpsItow;
+
 	float pos[3];
 	float vel[3];
 	short int motors[14];
 	short int throttle;
-	float extra[4];
+//	float extra[4];
 	float radioQuality;
 	short int radioChannels[18];
 	unsigned int radioErrors;

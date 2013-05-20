@@ -49,7 +49,7 @@ Options Summary (may use long or short versions):\n\n\
 	strcat(outTxt, "\
 	[--gps-track | -g\n\
 		[--gps-wpoints=(include|only) | -w (i|o)]\n\
-		[--use-pres-alt | -P] [--pres-alt-offset=N | -O N]\n\
+		[--alt-source=(press|ukf) | -A (p|u)] [--alt-offset=N | -O N]\n\
 		[--track-min-hacc=M | -a M] [--track-min-vacc=M | -v M]\n\
 	]\n\
 	[--log-date=DDMMYY | -d DDMMYY] [--localtime | -l]\n\
@@ -90,9 +90,10 @@ Options only used along with --gps-track:\n\
 		default behavior is to export only a track unless --trig-chan\n\
 		is also used. NOTE: generating waypoints produces bigger\n\
 		files and may take more time/memory to generate!\n\
- --use-pres-alt	Use altitude reported by pressure sensor instead of GPS;\n\
-		altitude is first adjusted by specified offset.\n\
- --pres-alt-offset	Meters to add to pressure altitude to get MSL;\n\
+ --alt-source	Use alternate altitude source instead of GPS;\n\
+		One of: (p)ress to use un-adjusted pressure sensor altitude;\n\
+			(u)kf to use derived altitude (UKF_POSD);\n\
+ --alt-offset	Meters to add to altitude to get true MSL;\n\
 		can be negative (decimal; default is 0).\n\
  --gps-min-hacc	Min. GPS horizontal accuracy for track log output\n\
 		in meters (decimal; default is 2).\n\
@@ -205,8 +206,8 @@ void logDumpOpts(int argc, char **argv) {
                 {"col-headers",		no_argument,		NULL,		'c'},
                 {"exp-format",		required_argument,	NULL,		'e'},
                 {"gps-wpoints",		required_argument,	NULL,		'w'},
-                {"use-pres-alt",	no_argument,		NULL,		'P'},
-                {"pres-alt-offset",	required_argument,	NULL,		'O'},
+                {"alt-source",		required_argument,	NULL,		'A'},
+                {"alt-offset",		required_argument,	NULL,		'O'},
                 {"micros",			no_argument,		&longOpt,	O_MICROS},
                 {"voltages",		no_argument,		&longOpt,	O_VOLTAGES},
                 {"rates",			no_argument,		&longOpt,	O_RATES},
@@ -246,7 +247,7 @@ void logDumpOpts(int argc, char **argv) {
 	};
 
 	scaleMin = scaleMax = nan("");
-	while ((ch = getopt_long(argc, argv, "hpglcyPf:a:v:d:t:r:n:x:e:w:O:", longopts, NULL)) != -1) {
+	while ((ch = getopt_long(argc, argv, "hpglcyf:a:v:d:t:r:n:x:e:w:A:O:", longopts, NULL)) != -1) {
 		switch (ch) {
 			case 'h':
 				usage();
@@ -340,11 +341,14 @@ void logDumpOpts(int argc, char **argv) {
 			case 'x':
 				scaleMax = atof(optarg);
 				break;
-			case 'P':
-				gpsTrackUsePresAlt++;
+			case 'A':
+				if (!strcmp(optarg, "p") || !strcmp(optarg, "press"))
+					gpsTrackUsePresAlt++;
+				else if (!strcmp(optarg, "u") || !strcmp(optarg, "ukf"))
+					gpsTrackUseUkfAlt++;
 				break;
 			case 'O':
-				gpsTrackPresAltOffset = atof(optarg);
+				gpsTrackAltOffset = atof(optarg);
 				break;
 			case 0:
 				switch (longOpt) {
@@ -449,6 +453,8 @@ void logDumpOpts(int argc, char **argv) {
 						dumpOrder[dumpNum++] = LAT;
 						dumpHeaders[dumpNum] = "GPS_LON";
 						dumpOrder[dumpNum++] = LON;
+//						dumpHeaders[dumpNum] = "BRG_TO_HOME";
+//						dumpOrder[dumpNum++] = BRG_TO_HOME;
 						break;
 					case O_GPS_POS_ACC:
 						dumpHeaders[dumpNum] = "GPS_HACC";
@@ -744,6 +750,18 @@ void formatIsoTime(char *s, double v) {
 
 	sprintf(s, "%s", timeStr);
 }
+
+
+// input lat/lon in degrees, returns bearing in radians
+float navCalcBearing(double lat1, double lon1, double lat2, double lon2) {
+    float lat1f = lat1 * DEG_TO_RAD;
+    float lat2f = lat2 * DEG_TO_RAD;
+    float lon1f = lon1 * DEG_TO_RAD;
+    float lon2f = lon2 * DEG_TO_RAD;
+
+    return atan2f(sinf(lat1f) * (lon2f - lon1f), lat2f - lat1f);
+}
+
 
 double logDumpGetValue(loggerRecord_t *l, int field) {
 	double val;
@@ -1090,6 +1108,9 @@ double logDumpGetValue(loggerRecord_t *l, int field) {
 		val = rpy[2] * RAD_TO_DEG;
 		if (val < 0) val = 360 + val;
 		break;
+	case BRG_TO_HOME:
+		val = navCalcBearing(homeLat, homeLon, logDumpGetValue(l, LAT), logDumpGetValue(l, LON));
+		break;
 	}
 
 	return val;
@@ -1126,7 +1147,20 @@ void logDumpText(loggerRecord_t *l) {
 	char gpxTrkptOut[1000];
 	char *trackName;
 	char lclTrigWptName[40];
+	static bool homeSet;
 	expFields_t exp;
+
+	// check for home position being set
+	if (homeSetChannel && posHoldChannel) {
+		if (!homeSet && (l->radioChannels[homeSetChannel-1] > 250 ||
+				(homeLat == 0.0f && l->radioChannels[posHoldChannel-1] > 250))) {
+			homeLat = logDumpGetValue(l, LAT);
+			homeLon = logDumpGetValue(l, LON);
+			homeSet = true;
+		}
+		else if (l->radioChannels[homeSetChannel-1] < 250)
+			homeSet = false;
+	}
 
 	if (!exportGPX && !exportKML && !exportMAV) {
 
@@ -1154,10 +1188,13 @@ void logDumpText(loggerRecord_t *l) {
 
 		exp.lat = logDumpGetValue(l, LAT);
 		exp.lon = logDumpGetValue(l, LON);
-		if (!gpsTrackUsePresAlt)
-		exp.alt = logDumpGetValue(l, GPS_ALT);
+		if (gpsTrackUsePresAlt)
+			exp.alt = logDumpGetValue(l, UKF_PRES_ALT);
+		else if (gpsTrackUseUkfAlt)
+			exp.alt = logDumpGetValue(l, POSD);
 		else
-			exp.alt = logDumpGetValue(l, UKF_PRES_ALT) + gpsTrackPresAltOffset;
+			exp.alt = logDumpGetValue(l, GPS_ALT);
+		exp.alt += gpsTrackAltOffset;
 		exp.speed = logDumpGetValue(l, GPS_H_SPEED);
 		exp.climb = logDumpGetValue(l, VELD);
 		exp.hdg = logDumpGetValue(l, YAW);

@@ -31,6 +31,7 @@ extern "C" {
 #define ADC_KELVIN_TO_CELCIUS	-273.0f
 
 #define RAD_TO_DEG (180.0f / M_PI)
+#define DEG_TO_RAD (M_PI / 180.0f)
 
 #define GPS_TRACK_MAX_TM_GAP	3000 // milliseconds w/out GPS position after which to start new track segment
 #define TRIG_ZERO_BUFFER	100 // pulse width ms +/- buffer for zero (center) position
@@ -43,9 +44,12 @@ static float gpsTrackMinVAcc = 2; // gps track dump: minimum GPS_VACC (est. vert
 static bool gpsTrackAsWpts = 0; // export gps track as waypoints (GPX/KML only)
 static bool gpsTrackInclWpts = 0; // export gps track AND waypoints (GPX/KML only)
 static bool gpsTrackUsePresAlt = 0; // use pressure sensor alt. instead of GPS alt, after adjusting by given offset
-static float gpsTrackPresAltOffset = 0; // offset in meters between reported pressure alt. and MSL
+static bool gpsTrackUseUkfAlt = 0;  // use UKF derived altitude instead of raw GPS altitude
+static float gpsTrackAltOffset = 0; // offset in meters between reported pressure alt. and MSL
 static int camTrigChannel = 0; // trigger radio channel (zero for none)
 static int camTrigValue = 250; // trigger channel value above/below which means camera was triggered
+static int homeSetChannel = 7;
+static int posHoldChannel = 6;
 static char valueSep = ' '; // export value delimiter (space, comma, tab, etc)
 
 // GPX/KML export settings
@@ -173,6 +177,7 @@ enum fields {
 	ROLL,
 	PITCH,
 	YAW,
+	BRG_TO_HOME,
 	NUM_FIELDS
 };
 
@@ -206,6 +211,7 @@ static float dumpMin[NUM_FIELDS];
 static float dumpMax[NUM_FIELDS];
 static float scaleMin, scaleMax;
 static double lastGpsFixTime;
+static double homeLat, homeLon;
 static const char *dumpHeaders[NUM_FIELDS];
 static char *trackDateStr;
 static char *gpxWaypoints;

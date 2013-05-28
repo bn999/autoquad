@@ -17,8 +17,6 @@ extern "C" {
 #include <stdint.h>
 #include <time.h>
 
-// #define HAS_PLPLOT
-
 #define P0                  	101325.0	// standard static pressure at sea level
 #define ADC_REF_VOLTAGE		3.3f
 #define ADC_TEMP_OFFSET		1.25f		// volts (IDG500 PTATS)
@@ -218,11 +216,6 @@ static char *gpxWaypoints;
 static const char *blnk = "";
 static struct filespec logfilespec;
 static loggerRecord_t logEntry;
-
-#ifdef HAS_PLPLOT
-	PLFLT *xVals;
-	PLFLT *yVals;
-#endif
 
 extern time_t towStartTime; // will hold date to add with GPS ToW to arrive at actual date/time
 extern FILE *outFP;

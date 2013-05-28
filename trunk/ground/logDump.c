@@ -33,6 +33,11 @@
 // include export formatting templates (gpx/kml)
 #include "logDump_templates.h"
 
+#ifdef HAS_PLPLOT
+        PLFLT *xVals;
+        PLFLT *yVals;
+#endif
+
 time_t towStartTime;
 FILE *outFP;
 
@@ -1172,7 +1177,10 @@ void logDumpText(loggerRecord_t *l) {
 			else
 				sprintf(outStr, "%.15G", logVal);
 
-			printf("%s%c", outStr, (i < dumpNum-1 ? valueSep : 0));
+			printf(outStr);
+
+			if (i < dumpNum-1)
+				printf("%c", valueSep);
 
 		}
 		printf("\n"); // end of export row

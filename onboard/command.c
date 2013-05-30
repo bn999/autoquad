@@ -13,17 +13,19 @@
     You should have received a copy of the GNU General Public License
     along with AutoQuad.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright © 2011, 2012, 2013  Bill Nesbitt
+    Copyright © 2011, 2012  Bill Nesbitt
 */
 
 #include "aq.h"
 #include "command.h"
-#include "comm.h"
+#include "serial.h"
 #include "telemetry.h"
-#include "comm.h"
+#include "downlink.h"
+#include "notice.h"
 #include "control.h"
 #include "config.h"
 #include "gps.h"
+#include "adc.h"
 #include "aq_mavlink.h"
 #include "util.h"
 #include "imu.h"
@@ -33,54 +35,38 @@
 
 commandStruct_t commandData __attribute__((section(".ccm")));
 
-static void commandChecksum(uint8_t c) {
+OS_STK *commandTaskStack;
+
+void commandChecksum(unsigned char c) {
     commandData.checkA += c;
     commandData.checkB += commandData.checkA;
 }
 
-static uint8_t *commandSendChar(uint8_t *ptr, uint8_t c) {
-    *ptr++ = c;
-    commandChecksum(c);
-
-    return ptr;
-}
-
-static void commandResponseSend(commandBufStruct_t *r, uint8_t len) {
-    commTxBuf_t *txBuf;
-    uint8_t *ptr;
+void commandResponseSend(commandBufStruct_t *r, unsigned char len) {
     char *c = (char *)r;
 
-    txBuf = commGetTxBuf(COMM_TYPE_TELEMETRY, len + 3 + 5 + 2);
-    if (txBuf != 0) {
-	ptr = &txBuf->buf;
+    // grab port lock
+    CoEnterMutexSection(downlinkData.serialPortMutex);
 
-	supervisorSendDataStart();
+    downlinkSendString("AqR");	// response header
 
-	*ptr++ = 'A';
-	*ptr++ = 'q';
-	*ptr++ = 'R';
+    downlinkResetChecksum();
+    downlinkSendChar(commandData.requestId[0]);
+    downlinkSendChar(commandData.requestId[1]);
+    downlinkSendChar(commandData.requestId[2]);
+    downlinkSendChar(commandData.requestId[3]);
+    downlinkSendChar(len);
+    do {
+	downlinkSendChar(*c++);
+    } while (--len);
 
-	commandData.checkA = commandData.checkB = 0;
+    downlinkSendChecksum();
 
-	ptr = commandSendChar(ptr, commandData.requestId[0]);
-	ptr = commandSendChar(ptr, commandData.requestId[1]);
-	ptr = commandSendChar(ptr, commandData.requestId[2]);
-	ptr = commandSendChar(ptr, commandData.requestId[3]);
-	ptr = commandSendChar(ptr, len);
-	do {
-	    ptr = commandSendChar(ptr, *c++);
-	} while (--len);
-
-	*ptr++ = commandData.checkA;
-	*ptr++ = commandData.checkB;
-
-	commSendTxBuf(txBuf, ptr - &txBuf->buf);
-
-	supervisorSendDataStop();
-    }
+    // release serial port
+    CoLeaveMutexSection(downlinkData.serialPortMutex);
 }
 
-static void commandRespond(unsigned char c, char *reply, unsigned char len) {
+void commandRespond(unsigned char c, char *reply, unsigned char len) {
     commandBufStruct_t resp;
 
     resp.commandId = c;
@@ -93,16 +79,16 @@ static void commandRespond(unsigned char c, char *reply, unsigned char len) {
     }
 }
 
-static void commandAck(char *reply, unsigned char len) {
+void commandAck(char *reply, unsigned char len) {
     commandRespond(COMMAND_ID_ACK, reply, len);
 }
 
-static void commandNack(char *reply, unsigned char len) {
+void commandNack(char *reply, unsigned char len) {
     commandRespond(COMMAND_ID_NACK, reply, len);
 }
 
 // temporary to receive external acc from serial port
-static void commandAccIn(commandBufStruct_t *b) {
+void commandAccIn(commandBufStruct_t *b) {
     typedef struct {
 	unsigned char command;
 	unsigned char rows;
@@ -126,7 +112,7 @@ static void commandAccIn(commandBufStruct_t *b) {
     commandData.floatDump[9] = dump->values[9];
 }
 
-static void commandExecute(commandBufStruct_t *b) {
+void commandExecute(commandBufStruct_t *b) {
     switch (b->commandId) {
     case COMMAND_GPS_PACKET:
 	    // first character is length
@@ -134,17 +120,16 @@ static void commandExecute(commandBufStruct_t *b) {
 	    commandAck(NULL, 0);
 	    break;
 
-//    case COMMAND_ID_GPS_PASSTHROUGH:
-//	    if (!(supervisorData.state & STATE_FLYING)) {
-//		    telemetryDisable();
-//		    commandAck(NULL, 0);
-//		    gpsPassthrough(gpsData.gpsPort, downlinkData.serialPort);
-//	    }
-//	    else {
-//		    commandNack(NULL, 0);
-//	    }
-//	    break;
-
+    case COMMAND_ID_GPS_PASSTHROUGH:
+	    if (!(supervisorData.state & STATE_FLYING)) {
+		    telemetryDisable();
+		    commandAck(NULL, 0);
+		    gpsPassthrough(gpsData.gpsPort, downlinkData.serialPort);
+	    }
+	    else {
+		    commandNack(NULL, 0);
+	    }
+	    break;
     case COMMAND_CONFIG_PARAM_READ:
 	    {
 		    unsigned int replyLength = configParameterRead(b->data);
@@ -249,7 +234,7 @@ static void commandExecute(commandBufStruct_t *b) {
     }
 }
 
-static void commandCharIn(unsigned char ch) {
+void commandCharIn(unsigned char ch) {
     switch (commandData.state) {
     case COMMAND_WAIT_SYNC1:
 	if (ch == COMMAND_SYNC1)
@@ -350,9 +335,19 @@ static void commandCharIn(unsigned char ch) {
     }
 }
 
-void commandTaskCode(commRcvrStruct_t *r) {
-    while (commAvailable(r))
-	commandCharIn(commReadChar(r));
+void commandTaskCode(void *unused) {
+    serialPort_t *s = downlinkData.serialPort;
+
+    AQ_NOTICE("Command task started\n");
+
+    while (1) {
+	// wait for data
+	yield(5);
+
+	// process incoming data
+	while (serialAvailable(s))
+	    commandCharIn(downlinkReadChar());
+    }
 }
 
 void commandInit(void) {
@@ -360,7 +355,9 @@ void commandInit(void) {
 
     memset((void *)&commandData, 0, sizeof(commandData));
 
-    commRegisterRcvrFunc(COMM_TYPE_TELEMETRY, commandTaskCode);
+    commandTaskStack = aqStackInit(COMMAND_STACK_SIZE, "COMMAND");
+
+    commandData.commandTask = CoCreateTask(commandTaskCode, (void *)0, COMMAND_PRIORITY, &commandTaskStack[COMMAND_STACK_SIZE-1], COMMAND_STACK_SIZE);
 
     commandData.state = COMMAND_WAIT_SYNC1;
 }

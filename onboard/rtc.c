@@ -20,7 +20,7 @@
 #include "rcc.h"
 #include "rtc.h"
 #include "aq_timer.h"
-#include "comm.h"
+#include "notice.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -172,7 +172,7 @@ void rtcInit(void) {
 
     // Enable the RTC Wakeup Interrupt
     NVIC_InitStructure.NVIC_IRQChannel = RTC_WKUP_IRQn;
-    NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 2;
+    NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 1;
     NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
     NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
     NVIC_Init(&NVIC_InitStructure);

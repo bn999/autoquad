@@ -25,12 +25,12 @@
 
 #define	UTIL_STACK_CHECK	16		// uncomment to allow system to self check for stack overflows
 
-#define UTIL_CCM_HEAP_SIZE	(0x2600)	// 38KB
+#define UTIL_CCM_HEAP_SIZE	(0x2400)	// 36KB
 
 #define UTIL_ISR_DISABLE	__asm volatile ( "CPSID   F\n")
 #define UTIL_ISR_ENABLE		__asm volatile ( "CPSIE   F\n")
 
-#define yield(n) CoTickDelay(n);
+#define yield(n)    CoTickDelay(n);
 
 // first order filter
 typedef struct {
@@ -59,8 +59,6 @@ extern int ftoa(char *buf, float f, unsigned int digits);
 extern void utilVersionString(char *s);
 #ifdef UTIL_STACK_CHECK
 extern void utilStackCheck(void);
-extern uint16_t stackFrees[UTIL_STACK_CHECK];
-extern uint16_t utilGetStackFree(const char *stackName);
 #endif
 
 #endif

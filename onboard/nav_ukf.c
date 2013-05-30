@@ -13,7 +13,7 @@
     You should have received a copy of the GNU General Public License
     along with AutoQuad.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright © 2011, 2012, 2013  Bill Nesbitt
+    Copyright © 2011, 2012  Bill Nesbitt
 */
 
 #include "nav_ukf.h"
@@ -250,7 +250,6 @@ void navUkfRotateQuat(float *qr, float *q, float *rate, float dt) {
     qr[3] = -rate[2]*q1[0] - rate[1]*q1[1] + rate[0]*q1[2] + lg*q1[3];
 }
 
-float t1, t2, t3;
 void navUkfTimeUpdate(float *in, float *noise, float *out, float *u, float dt) {
     float tmp[3], acc[3];
     float rate[3];
@@ -634,12 +633,12 @@ void navUkfInitState(void) {
     uint32_t lastUpdate;
     float acc[3], mag[3];
     float estAcc[3], estMag[3];
-//    float vX[UKF_GYO_AVG_NUM];
-//    float vY[UKF_GYO_AVG_NUM];
-//    float vZ[UKF_GYO_AVG_NUM];
-//    float stdX, stdY, stdZ;
+    float vX[UKF_GYO_AVG_NUM];
+    float vY[UKF_GYO_AVG_NUM];
+    float vZ[UKF_GYO_AVG_NUM];
+    float stdX, stdY, stdZ;
     float m[3*3];
-    int i;//, j;
+    int i, j;
 
     // vel
     UKF_VELN = 0.0;
@@ -674,7 +673,7 @@ void navUkfInitState(void) {
 
     // estimate initial orientation & gyo bias
     i = 0;
-//    j = 0;
+    j = 0;
     do {
 	float rotError[3];
 
@@ -682,10 +681,10 @@ void navUkfInitState(void) {
 	while (lastUpdate == IMU_LASTUPD)
 	    ;
 
-//	vX[j] = -IMU_RATEX;
-//	vY[j] = -IMU_RATEY;
-//	vZ[j] = -IMU_RATEZ;
-//	j = (j + 1) % UKF_GYO_AVG_NUM;
+	vX[j] = IMU_RATEX;
+	vY[j] = IMU_RATEY;
+	vZ[j] = IMU_RATEZ;
+	j = (j + 1) % UKF_GYO_AVG_NUM;
 
 	mag[0] = IMU_MAGX;
 	mag[1] = IMU_MAGY;
@@ -718,19 +717,18 @@ void navUkfInitState(void) {
 
         navUkfRotateQuat(&UKF_Q1, &UKF_Q1, rotError, 0.1f);
 
-//	if (i >= UKF_GYO_AVG_NUM) {
-//	    arm_std_f32(vX, UKF_GYO_AVG_NUM, &stdX);
-//	    arm_std_f32(vY, UKF_GYO_AVG_NUM, &stdY);
-//	    arm_std_f32(vZ, UKF_GYO_AVG_NUM, &stdZ);
-//	}
+	if (i >= UKF_GYO_AVG_NUM) {
+	    arm_std_f32(vX, UKF_GYO_AVG_NUM, &stdX);
+	    arm_std_f32(vY, UKF_GYO_AVG_NUM, &stdY);
+	    arm_std_f32(vZ, UKF_GYO_AVG_NUM, &stdZ);
+	}
 
 	i++;
-//    } while (i < (int)(1.0f / AQ_TIMESTEP)*IMU_STATIC_TIMEOUT && (i <= UKF_GYO_AVG_NUM*5 || (stdX + stdY + stdZ) > 0.004f));
-    } while (i <= UKF_GYO_AVG_NUM*5);
+    } while (i <= UKF_GYO_AVG_NUM*5 || (stdX + stdY + stdZ) > 0.004f);
 
-//    arm_mean_f32(vX, UKF_GYO_AVG_NUM, &UKF_GYO_BIAS_X);
-//    arm_mean_f32(vY, UKF_GYO_AVG_NUM, &UKF_GYO_BIAS_Y);
-//    arm_mean_f32(vZ, UKF_GYO_AVG_NUM, &UKF_GYO_BIAS_Z);
+    arm_mean_f32(vX, UKF_GYO_AVG_NUM, &UKF_GYO_BIAS_X);
+    arm_mean_f32(vY, UKF_GYO_AVG_NUM, &UKF_GYO_BIAS_Y);
+    arm_mean_f32(vZ, UKF_GYO_AVG_NUM, &UKF_GYO_BIAS_Z);
 }
 
 void navUkfInit(void) {

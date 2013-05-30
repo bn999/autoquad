@@ -13,7 +13,7 @@
     You should have received a copy of the GNU General Public License
     along with AutoQuad.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright © 2012, 2013  Bill Nesbitt
+    Copyright © 2012  Bill Nesbitt
 */
 
 /*
@@ -25,8 +25,6 @@
 #include "radio.h"
 #include "ppm.h"
 #include "aq_timer.h"
-#include "config.h"
-#include "util.h"
 #include <string.h>
 
 ppmStruct_t ppmData __attribute__((section(".ccm")));
@@ -53,96 +51,95 @@ void ppmCallback(uint32_t capture, uint8_t bitstatus) {
     ppmData.lastCaptureValue = capture;
 
     // Now parse CPPM. The code below is a bit oversimplified.
-    if (diff > PPM_GUARD_PULSE_LENGTH) { // Frame separator detected
+    if (diff > PPM_GUARD_PULSE_LENGTH) { // New frame started
         // Try to autodetermine number of channels
         // If we have seen enough frames with the same number of channels,
         // store this number of channels in number_of_channels
         if (ppmData.numberChannels == 0) {
-            // We are still determining number of channels, "signal not stable"
-            ppmData.signalQuality = -1;
+            // We are still determining number of channels
+            ppmData.signalQuality = 0; // "signal not stable enough" ;)
 
             if (ppmData.lastChannel <= PPM_MAX_CHANNELS
                 && ppmData.lastChannel == ppmData.previousChannels) {
 
                 if (ppmData.stableChannelsCount >= PPM_STAB_CHANNEL_FRAMES) {
                     ppmData.numberChannels = ppmData.lastChannel;
+                    ppmData.signalQuality = 1;
                 }
-                else {
+		else {
                     ppmData.stableChannelsCount++;
                 }
             }
-            else {
+	    else {
                 ppmData.stableChannelsCount = 0;
             }
         }
-        // Number of channels is already known. So verify that there were
-        // no errors during last frame capture and store channel values
-        else {
-            if (ppmData.lastChannel != ppmData.numberChannels) // Wrong number of channels
-                ppmData.inputValid = 0;
-
-            // valid frame, pass values to ppmData.channels
+	else {
+            // Number of channels is already known. So verify that there were
+            // no errors during last frame capture and store channel values
             if (ppmData.inputValid) {
-		memcpy(ppmData.channels, ppmData.tmp_channels, sizeof(ppmData.channels));
-		ppmData.frameParsed = 1;
-	        ppmData.signalQuality = 1;  // normal operation
-            }
-            // handle invalid frame
-            else {
-                ppmData.signalQuality = -1; // critical error
-                radioData.errorCount++;     // increment shared cumulative error counter
+                if (ppmData.lastChannel != ppmData.numberChannels) { // Wrong number of channels
+                    ppmData.inputValid    = 0;
+                    ppmData.frameParsed   = 0;
+                    ppmData.signalQuality = 0;
+                }
+		else {
+                    ppmData.signalQuality = 1;
+                    ppmData.frameParsed = 1;
+                    memcpy(ppmData.channels, ppmData.tmp_channels, sizeof(ppmData.channels));
+	            radioData.lastUpdate = timerMicros();
+                }
             }
         }
-
         ppmData.previousChannels = ppmData.lastChannel;
         ppmData.lastChannel = 0;
         ppmData.inputValid  = 1;
-
-    } // end handling of frame separator
-
+    }
     else if (ppmData.inputValid) { // We are inside the frame and no errors found this far in the frame
-
-	// Too many channels, invalidate the whole frame
-        if (ppmData.lastChannel >= PPM_MAX_CHANNELS)
-            ppmData.inputValid = 0;
-
-        // Pulse length is valid, count it as the next channel value
-        else if (diff >= PPM_MIN_PULSE_WIDTH && diff <= PPM_MAX_PULSE_WIDTH)
+        if (ppmData.lastChannel >= PPM_MAX_CHANNELS) {    // Too many channels
+            ppmData.inputValid    = 0;
+            ppmData.signalQuality = 0;
+        }
+	else if (diff > PPM_MIN_PULSE_WIDTH && diff < PPM_MAX_PULSE_WIDTH) {
             ppmData.tmp_channels[(ppmData.lastChannel)++] = diff;
-
-        // Invalid pulse invalidates the whole frame.
-        // (also tried ignoring them because "If pulse was actually a channel, this will be caught later when the frame is validated."
-        //  but in practice this seems to cause random channel value drops. )
-        else
-            ppmData.inputValid = 0;
-            //ppmData.signalQuality = 0; // non-critical error
-
+        }
+	else {
+            ppmData.inputValid    = 0;
+            ppmData.signalQuality = 0;
+	}
     }
 }
 
 void ppmInit(void) {
     memset((void *)&ppmData, 0, sizeof(ppmData));
-    ppmData.ppmPort = pwmInitIn(PPM_PWM_CHANNEL, PPM_CAPTURE_EDGE, 0x10000, ppmCallback);
+    ppmData.ppmPort = pwmInitIn(PPM_PWM_CHANNEL, 1 /* rising polarity */, 0x10000, ppmCallback);
 }
 
 int ppmDataAvailable(void) {
 
     if (ppmData.frameParsed) {
-        ppmData.frameParsed = 0;
-        for (int i=0; i < ppmData.numberChannels; ++i) {
-            if (i == (int)p[RADIO_THRO_CH])
-                radioData.channels[i] = constrainInt((int)((ppmData.channels[i] - p[PPM_THROT_LOW])*5 / p[PPM_SCALER]), PPM_THROT_MIN, PPM_THROT_MAX);
-            else
-        	radioData.channels[i] = constrainInt((int)((ppmData.channels[i] - p[PPM_CHAN_MID])*5 / p[PPM_SCALER]), PPM_CHAN_MIN, PPM_CHAN_MAX);
-        }
+	ppmData.frameParsed = 0;
+
+	RADIO_THROT	= ppmLimitRangeThrottle((PPM_THROT-p[PPM_THROT_LOW])*5 / p[PPM_SCALER]);
+	RADIO_ROLL 	= ppmLimitRange((PPM_ROLL-p[PPM_CHAN_MID])*5 / p[PPM_SCALER]);
+	RADIO_PITCH	= ppmLimitRange((PPM_PITCH-p[PPM_CHAN_MID])*5 / p[PPM_SCALER]);
+	RADIO_RUDD 	= ppmLimitRange((PPM_RUDD-p[PPM_CHAN_MID])*5 / p[PPM_SCALER]);
+	RADIO_GEAR 	= ppmLimitRange((PPM_GEAR-p[PPM_CHAN_MID])*5 / p[PPM_SCALER]);
+	RADIO_FLAPS	= ppmLimitRange((PPM_FLAPS-p[PPM_CHAN_MID])*5 / p[PPM_SCALER]);
+	RADIO_AUX2 	= ppmLimitRange((PPM_AUX2-p[PPM_CHAN_MID])*5 / p[PPM_SCALER]);
+	RADIO_AUX3 	= ppmLimitRange((PPM_AUX3-p[PPM_CHAN_MID])*5 / p[PPM_SCALER]);
+	RADIO_AUX4 	= ppmLimitRange((PPM_AUX4-p[PPM_CHAN_MID])*5 / p[PPM_SCALER]);
+	RADIO_AUX5 	= ppmLimitRange((PPM_AUX5-p[PPM_CHAN_MID])*5 / p[PPM_SCALER]);
+	RADIO_AUX6 	= ppmLimitRange((PPM_AUX6-p[PPM_CHAN_MID])*5 / p[PPM_SCALER]);
+	RADIO_AUX7 	= ppmLimitRange((PPM_AUX7-p[PPM_CHAN_MID])*5 / p[PPM_SCALER]); 
+
         return 1;
     }
-    else
+    else {
         return 0;
-
+    }
 }
 
-int8_t ppmGetSignalQuality(void) {
-  return ppmData.signalQuality;
+int ppmGetSignalQuality(void) {
+    return ppmData.signalQuality;
 }
-

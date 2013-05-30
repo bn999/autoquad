@@ -13,7 +13,7 @@
     You should have received a copy of the GNU General Public License
     along with AutoQuad.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright © 2011, 2012, 2013  Bill Nesbitt
+    Copyright © 2011, 2012  Bill Nesbitt
 */
 
 #include "gps.h"
@@ -21,7 +21,7 @@
 #include "serial.h"
 #include "digital.h"
 #include "nav.h"
-#include "comm.h"
+#include "notice.h"
 #include "aq_timer.h"
 #include "config.h"
 #include "util.h"
@@ -39,6 +39,10 @@ OS_STK *gpsTaskStack;
 char gpsLog[GPS_LOG_BUF];
 #endif
 
+void gpsInitGps(void) {
+    ubloxInitGps();
+}
+
 void gpsSendSetup(void) {
     ubloxSendSetup();
 }
@@ -50,11 +54,26 @@ void gpsCheckBaud(serialPort_t *s) {
 	AQ_NOTICE("GPS: trying new baud rate\n");
 	serialChangeBaud(s, gpsData.baudCycle[gpsData.baudSlot]);
 	ubloxInitGps();
-	serialChangeBaud(s, GPS_BAUD_RATE);
+	serialChangeBaud(s, p[GPS_BAUD_RATE]);
 	gpsSendSetup();
 	gpsData.lastMessage = IMU_LASTUPD;
     }
 }
+
+#ifdef SET_LOG_TIME_FROM_GPS
+
+void gpsSetUtcDateTime(const unsigned year, const unsigned month, const unsigned day, const unsigned hour, const unsigned minute, const unsigned second) {
+/*
+    if ( year-1980 != (gpsData.utcDateTime>>25) ) { // notify only once per year :)
+	static char s[34];
+	sprintf(s, "DateTime set: %04d-%02d-%02d %02d:%02d:%02d UTC\n", year, month, day, hour, minute, second);
+	AQ_NOTICE(s);
+    }
+*/
+    gpsData.utcDateTime = (year - 1980)<<25 | month<<21 | day<<16 | hour<<11 | minute<<5 | second>>1;
+}
+
+#endif
 
 void gpsTaskCode(void *p) {
     serialPort_t *s = gpsData.gpsPort;
@@ -120,22 +139,20 @@ void gpsInit(void) {
 
     memset((void *)&gpsData, 0, sizeof(gpsData));
 
-    gpsData.baudCycle[0] = GPS_BAUD_RATE;
+    gpsData.baudCycle[0] = p[GPS_BAUD_RATE];
     gpsData.baudCycle[1] = 9600;
-    gpsData.baudCycle[2] = 0;
-
-//    gpsData.baudCycle[2] = 230400;
-//    gpsData.baudCycle[3] = 115200;
-//    gpsData.baudCycle[4] = 19200;
-//    gpsData.baudCycle[5] = 38400;
-//    gpsData.baudCycle[6] = 0;
+    gpsData.baudCycle[2] = 230400;
+    gpsData.baudCycle[3] = 115200;
+    gpsData.baudCycle[4] = 19200;
+    gpsData.baudCycle[5] = 38400;
+    gpsData.baudCycle[6] = 0;
 
     gpsData.baudSlot = 0;
 
     gpsData.gpsLed = digitalInit(GPS_LED_PORT, GPS_LED_PIN);
     digitalLo(gpsData.gpsLed);
 
-    gpsData.gpsPort = serialOpen(GPS_USART, GPS_BAUD_RATE, USART_HardwareFlowControl_None, 512, 512);
+    gpsData.gpsPort = serialOpen(GPS_USART, p[GPS_BAUD_RATE], USART_HardwareFlowControl_None, 512, 512);
 
     // manual reset flags
     gpsData.gpsVelFlag = CoCreateFlag(0, 0);
@@ -146,22 +163,22 @@ void gpsInit(void) {
 
     // External Interrupt line PE1 for timepulse
     GPIO_StructInit(&GPIO_InitStructure);
-    GPIO_InitStructure.GPIO_Pin = GPS_TP_PIN;
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_1;
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN;
     GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_NOPULL;
-    GPIO_Init(GPS_TP_PORT, &GPIO_InitStructure);
+    GPIO_Init(GPIOE, &GPIO_InitStructure);
 
-    SYSCFG_EXTILineConfig(GPS_TP_PORT_SOURCE, GPS_TP_PIN_SOURCE);
+    SYSCFG_EXTILineConfig(EXTI_PortSourceGPIOE, EXTI_PinSource1);
 
-    EXTI_InitStructure.EXTI_Line = GPS_TP_EXTI_LINE;
+    EXTI_InitStructure.EXTI_Line = EXTI_Line1;
     EXTI_InitStructure.EXTI_Mode = EXTI_Mode_Interrupt;
     EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Rising;
     EXTI_InitStructure.EXTI_LineCmd = ENABLE;
     EXTI_Init(&EXTI_InitStructure);
 
     // Timepulse interrupt from GPS
-    NVIC_InitStructure.NVIC_IRQChannel = GPS_TP_IRQ;
-    NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 1;
+    NVIC_InitStructure.NVIC_IRQChannel = EXTI1_IRQn;
+    NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0;
     NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
     NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
     NVIC_Init(&NVIC_InitStructure);
@@ -169,6 +186,10 @@ void gpsInit(void) {
     gpsData.microsPerSecond = AQ_US_PER_SEC<<11;
 
     gpsData.hAcc = gpsData.vAcc = gpsData.sAcc = 1e6f;
+
+#ifdef SET_LOG_TIME_FROM_GPS
+    gpsSetUtcDateTime(2000, 1, 1, 0, 0, 0);
+#endif
 
 #ifdef GPS_LOG_BUF
     gpsData.logHandle = filerGetHandle(GPS_FNAME);
@@ -206,7 +227,7 @@ void gpsSendPacket(unsigned char len, char *buf) {
 	serialWrite(gpsData.gpsPort, buf[i]);
 }
 
-void GPS_TP_HANDLER() {
+void EXTI1_IRQHandler() {
     unsigned long tp = timerMicros();
     unsigned long diff = (tp - gpsData.lastTimepulse);
 
@@ -215,5 +236,5 @@ void GPS_TP_HANDLER() {
     gpsData.lastTimepulse = tp;
     gpsData.TPtowMS = gpsData.lastReceivedTPtowMS;
 
-    EXTI_ClearITPendingBit(GPS_TP_EXTI_LINE);
+    EXTI_ClearITPendingBit(EXTI_Line1);
 }

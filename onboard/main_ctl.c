@@ -13,7 +13,7 @@
     You should have received a copy of the GNU General Public License
     along with AutoQuad.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright © 2011, 2012, 2013  Bill Nesbitt
+    Copyright © 2011, 2012  Bill Nesbitt
 */
 
 #include "aq.h"
@@ -47,7 +47,6 @@ int main(void) {
 
 // self calibrating idle timer loop
 void CoIdleTask(void* pdata) {
-    uint32_t thisCycles, lastCycles = 0;
     volatile uint32_t cycles;
     volatile uint32_t *DWT_CYCCNT = (uint32_t *)0xE0001004;
     volatile uint32_t *DWT_CONTROL = (uint32_t *)0xE0001000;
@@ -64,9 +63,8 @@ void CoIdleTask(void* pdata) {
 #endif
 	counter++;
 
-	thisCycles = *DWT_CYCCNT;
-	cycles = thisCycles - lastCycles;
-	lastCycles = thisCycles;
+	cycles = *DWT_CYCCNT;
+	*DWT_CYCCNT = 0; // reset the counter
 
 	// record shortest number of instructions for loop
 	if (cycles < minCycles)

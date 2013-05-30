@@ -16,21 +16,27 @@
     Copyright © 2011, 2012  Bill Nesbitt
 */
 
-#ifndef _telemetry_dump_h
-#define _telemetry_dump_h
+#ifndef _notice_h
+#define _notice_h
 
-enum telemetryTypes {
-	DOUBLE_T,
-	FLOAT_T,
-	INT_T,
-	SHORT_T,
-	CHAR_T,
-	NO_T
-};
+#include "aq_mavlink.h"
+#include <CoOS.h>
 
-struct telemetryFieldStruct {
-	const char *fieldName;
-	enum telemetryTypes fieldType;
-};
+#define NOTICE_STACK_SIZE	64
+#define NOTICE_PRIORITY		50
+
+#define NOTICE_QUEUE_DEPTH	20
+
+typedef struct {
+    OS_TID noticeTask;
+    OS_EventID notices;
+    void *noticeQueue[NOTICE_QUEUE_DEPTH];
+    int8_t initialized;
+} noticeStruct_t;
+
+extern noticeStruct_t noticeData;
+
+extern void noticeInit(void);
+extern void noticeSend(const char *s);
 
 #endif

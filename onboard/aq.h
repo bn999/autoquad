@@ -13,7 +13,7 @@
     You should have received a copy of the GNU General Public License
     along with AutoQuad.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright © 2011, 2012, 2013  Bill Nesbitt
+    Copyright © 2011, 2012  Bill Nesbitt
 */
 
 // NOTE: These parameters must be passed to GCC:
@@ -29,32 +29,23 @@
 
 //#define HAS_VN100
 //#define USE_VN100
-//#define HAS_DIGITAL_IMU
-//#define USE_DIGITAL_IMU
-
 //#define USE_CAN
 
 #define USE_PRES_ALT		1	// uncomment to use pressure altitude instead of GPS
-#define USE_SIGNALING			// uncomment to use external signaling events and ports
-
 
 //#define USE_L1_ATTITUDE
+//#define SET_LOG_TIME_FROM_GPS	// uncomment to set log file timestamp directly from GPS data; otherwise use RTC
 
-#ifndef BOARD_VERSION
-    #define BOARD_VERSION	6
-#endif
-#ifndef BOARD_REVISION
-    #define BOARD_REVISION	0
+#ifndef HARDWARE_REVISION
+    #define HARDWARE_REVISION	1
 #endif
 
 #include "stm32f4xx.h"
 
-#if BOARD_VERSION == 6
-    #if BOARD_REVISION == 0
-	#include "board_6_1.h"
-    #elif BOARD_REVISION == 1
-	#include "board_6_1a.h"
-    #endif
+#if HARDWARE_REVISION == 1
+    #include "board_6_1.h"
+#elif HARDWARE_REVISION == 2
+    #include "board_6_1a.h"
 #endif
 
 #ifndef M_PI
@@ -66,7 +57,11 @@
 
 #define GRAVITY			9.80665f	// m/s^2
 
-#define AQ_NOTICE		commNotice
+#ifdef USE_MAVLINK
+    #define AQ_NOTICE		mavlinkNotice
+#else
+    #define AQ_NOTICE		noticeSend
+#endif
 
 #define AQ_US_PER_SEC		1001567		// originally calibrated by GPS timepulse
 

@@ -16,12 +16,33 @@
     Copyright © 2011, 2012  Bill Nesbitt
 */
 
-#ifndef _stmbootloader_h
-#define _stmbootloader_h
+#ifndef _downlink_h
+#define _downlink_h
 
-#include <stdio.h>
+#include "aq.h"
 #include "serial.h"
+#include "digital.h"
+#include <CoOS.h>
 
-extern void stmLoader(serialStruct_t *s, FILE *fp, unsigned char overrideParity, unsigned char cont);
+#define DOWNLINK_USART		USART1
+#define DOWNLINK_RX_BUF_SIZE	256
+#define DOWNLINK_TX_BUF_SIZE	1024
+
+typedef struct {
+    serialPort_t *serialPort;
+    OS_MutexID serialPortMutex;
+} downlinkStruct_t;
+
+extern downlinkStruct_t downlinkData;
+
+extern void downlinkInit(void);
+extern void downlinkSendChar(unsigned char c);
+extern void downlinkSendInt(unsigned int i);
+extern void downlinkSendFloat(float f);
+extern void downlinkSendString(const char *s);
+extern void downlinkResetChecksum(void);
+extern void downlinkSendChecksum(void);
+extern unsigned char downlinkReadChar(void);
+extern void downlinkGetLong(unsigned long *v);
 
 #endif

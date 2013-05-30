@@ -13,23 +13,20 @@
     You should have received a copy of the GNU General Public License
     along with AutoQuad.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright © 2011, 2012, 2013  Bill Nesbitt
+    Copyright © 2011, 2012  Bill Nesbitt
 */
 
 #ifndef _aq_init_h
 #define _aq_init_h
 
 #include "aq.h"
-#include "digital.h"
 #include <CoOS.h>
 
-#define AQINIT_STACK_SIZE   400
+#define AQINIT_STACK_SIZE   268
 #define AQINIT_PRIORITY	    12
 
-extern digitalPin *tp;
+extern void aqInit(void *pdata);
 
 extern OS_STK   *aqInitStack;
-
-extern void aqInit(void *pdata);
 
 #endif

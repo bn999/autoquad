@@ -13,23 +13,23 @@
     You should have received a copy of the GNU General Public License
     along with AutoQuad.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright © 2011, 2012, 2013  Bill Nesbitt
+    Copyright © 2011, 2012  Bill Nesbitt
 */
 
 #include "aq.h"
 #include "run.h"
-#include "comm.h"
+#include "notice.h"
 #include "nav_ukf.h"
 #include "imu.h"
 #include "gps.h"
 #include "nav.h"
 #include "control.h"
+#include "telemetry.h"
+#include "aq_mavlink.h"
 #include "logger.h"
 #include "supervisor.h"
 #include "gimbal.h"
-#include "analog.h"
 #include "can.h"
-#include "config.h"
 #include <CoOS.h>
 #include <intrinsics.h>
 
@@ -37,8 +37,7 @@ OS_STK *runTaskStack;
 
 runStruct_t runData __attribute__((section(".ccm")));
 
-void runTaskCode(void *unused) {
-    uint32_t axis = 0;
+void runTaskCode(void *p) {
     uint32_t loops = 0;
 
     AQ_NOTICE("Run task started\n");
@@ -114,36 +113,28 @@ void runTaskCode(void *unused) {
 	}
 	// observe that the rates are exactly 0 if not flying or moving
 	else if (!(supervisorData.state & STATE_FLYING)) {
+	    static uint32_t axis = 0;
 	    float stdX, stdY, stdZ;
 
 	    arm_std_f32(runData.accHist[0], RUN_SENSOR_HIST, &stdX);
 	    arm_std_f32(runData.accHist[1], RUN_SENSOR_HIST, &stdY);
 	    arm_std_f32(runData.accHist[2], RUN_SENSOR_HIST, &stdZ);
 
-	    if ((stdX + stdY + stdZ) < (IMU_STATIC_STD*2)) {
-		if (!((axis + 0) % 3))
-		    navUkfZeroRate(IMU_RATEX, 0);
-		else if (!((axis + 1) % 3))
-		    navUkfZeroRate(IMU_RATEY, 1);
-		else
-		    navUkfZeroRate(IMU_RATEZ, 2);
-		axis++;
-	    }
+	    if ((stdX + stdY + stdZ) < (IMU_STATIC_STD*2))
+		navUkfZeroRate(IMU_RATEZ, (axis++) % 3);
 	}
 
 	navUkfFinish();
-
-	CoSetFlag(runData.runFlag);	// new state data
-
 	navNavigate();
-#ifndef HAS_AIMU
-	analogDecode();
-#endif
 	if (!(loops % 200))
 	    loggerDoHeader();
 	loggerDo();
 	gimbalUpdate();
-
+#ifdef USE_MAVLINK
+	mavlinkDo();
+#else
+	telemetryDo();
+#endif
 #ifdef USE_CAN
 	canCheckMessage();
     #if CAN_OUTPUT_IMU_FREQ > 0
@@ -163,7 +154,6 @@ void runInit(void) {
 
     memset((void *)&runData, 0, sizeof(runData));
 
-    runData.runFlag = CoCreateFlag(1, 0);	    // auto reset
     runTaskStack = aqStackInit(RUN_TASK_SIZE, "RUN");
 
     runData.runTask = CoCreateTask(runTaskCode, (void *)0, RUN_PRIORITY, &runTaskStack[RUN_TASK_SIZE-1], RUN_TASK_SIZE);

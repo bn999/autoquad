@@ -13,7 +13,7 @@
     You should have received a copy of the GNU General Public License
     along with AutoQuad.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright © 2011, 2012, 2013  Bill Nesbitt
+    Copyright © 2011, 2012  Bill Nesbitt
 */
 
 #include "aq.h"
@@ -77,7 +77,7 @@ void canInit(void) {
     CAN_FilterInit(&CAN_FilterInitStructure);
 
     NVIC_InitStructure.NVIC_IRQChannel = CAN1_RX0_IRQn;
-    NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0x1;
+    NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0x0;
     NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0x0;
     NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
     NVIC_Init(&NVIC_InitStructure);
@@ -103,21 +103,13 @@ void canTxIMUData(uint32_t loop) {
 	    // ACCX & ACCY
 	    canData.txMessage.StdId = CAN_IMU_VALUES_1 | CAN_ID;
 
-#ifdef HAS_DIGITAL_IMU
-	    ptr = (uint8_t *)&mpu6000Data.rawAcc[0];
-#else
 	    ptr = (uint8_t *)&adcData.voltages[ADC_VOLTS_ACCX];
-#endif
 	    canData.txMessage.Data[0] = *ptr++;
 	    canData.txMessage.Data[1] = *ptr++;
 	    canData.txMessage.Data[2] = *ptr++;
 	    canData.txMessage.Data[3] = *ptr++;
 
-#ifdef HAS_DIGITAL_IMU
-	    ptr = (uint8_t *)&mpu6000Data.rawAcc[1];
-#else
 	    ptr = (uint8_t *)&adcData.voltages[ADC_VOLTS_ACCY];
-#endif
 	    canData.txMessage.Data[4] = *ptr++;
 	    canData.txMessage.Data[5] = *ptr++;
 	    canData.txMessage.Data[6] = *ptr++;
@@ -128,21 +120,13 @@ void canTxIMUData(uint32_t loop) {
 	    // ACCZ & MAGX
 	    canData.txMessage.StdId = CAN_IMU_VALUES_2 | CAN_ID;
 
-#ifdef HAS_DIGITAL_IMU
-	    ptr = (uint8_t *)&mpu6000Data.rawAcc[2];
-#else
 	    ptr = (uint8_t *)&adcData.voltages[ADC_VOLTS_ACCZ];
-#endif
 	    canData.txMessage.Data[0] = *ptr++;
 	    canData.txMessage.Data[1] = *ptr++;
 	    canData.txMessage.Data[2] = *ptr++;
 	    canData.txMessage.Data[3] = *ptr++;
 
-#ifdef HAS_DIGITAL_IMU
-	    value = hmc5983Data.rawMag[0];
-#else
 	    value = (adcData.voltages[ADC_VOLTS_MAGX] - adcData.magBridgeBiasX) * (float)adcData.magSign;
-#endif
 
 	    ptr = (uint8_t *)&value;
 	    canData.txMessage.Data[4] = *ptr++;
@@ -155,11 +139,7 @@ void canTxIMUData(uint32_t loop) {
 	    // MAGY & MAGZ
 	    canData.txMessage.StdId = CAN_IMU_VALUES_3 | CAN_ID;
 
-#ifdef HAS_DIGITAL_IMU
-	    value = hmc5983Data.rawMag[1];
-#else
 	    value = (adcData.voltages[ADC_VOLTS_MAGY] - adcData.magBridgeBiasY) * (float)adcData.magSign;
-#endif
 
 	    ptr = (uint8_t *)&value;
 	    canData.txMessage.Data[0] = *ptr++;
@@ -167,11 +147,7 @@ void canTxIMUData(uint32_t loop) {
 	    canData.txMessage.Data[2] = *ptr++;
 	    canData.txMessage.Data[3] = *ptr++;
 
-#ifdef HAS_DIGITAL_IMU
-	    value = hmc5983Data.rawMag[2];
-#else
 	    value = (adcData.voltages[ADC_VOLTS_MAGZ] - adcData.magBridgeBiasZ) * (float)adcData.magSign;
-#endif
 
 	    ptr = (uint8_t *)&value;
 	    canData.txMessage.Data[4] = *ptr++;
@@ -186,21 +162,13 @@ void canTxIMUData(uint32_t loop) {
 	    // GYOX & GYOY
 	    canData.txMessage.StdId = CAN_IMU_VALUES_4 | CAN_ID;
 
-#ifdef HAS_DIGITAL_IMU
-	    ptr = (uint8_t *)&mpu6000Data.rawGyo[0];
-#else
 	    ptr = (uint8_t *)&adcData.voltages[ADC_VOLTS_RATEX];
-#endif
 	    canData.txMessage.Data[0] = *ptr++;
 	    canData.txMessage.Data[1] = *ptr++;
 	    canData.txMessage.Data[2] = *ptr++;
 	    canData.txMessage.Data[3] = *ptr++;
 
-#ifdef HAS_DIGITAL_IMU
-	    ptr = (uint8_t *)&mpu6000Data.rawGyo[1];
-#else
 	    ptr = (uint8_t *)&adcData.voltages[ADC_VOLTS_RATEY];
-#endif
 	    canData.txMessage.Data[4] = *ptr++;
 	    canData.txMessage.Data[5] = *ptr++;
 	    canData.txMessage.Data[6] = *ptr++;
@@ -211,11 +179,7 @@ void canTxIMUData(uint32_t loop) {
 	    // GYOZ & TEMP
 	    canData.txMessage.StdId = CAN_IMU_VALUES_5 | CAN_ID;
 
-#ifdef HAS_DIGITAL_IMU
-	    ptr = (uint8_t *)&mpu6000Data.rawGyo[2];
-#else
 	    ptr = (uint8_t *)&adcData.voltages[ADC_VOLTS_RATEZ];
-#endif
 	    canData.txMessage.Data[0] = *ptr++;
 	    canData.txMessage.Data[1] = *ptr++;
 	    canData.txMessage.Data[2] = *ptr++;

@@ -13,13 +13,14 @@
     You should have received a copy of the GNU General Public License
     along with AutoQuad.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright © 2011, 2012, 2013  Bill Nesbitt
+    Copyright © 2011, 2012  Bill Nesbitt
 */
 
 #include "aq.h"
 #include "logger.h"
 #include "sdio.h"
 #include "filer.h"
+#include "notice.h"
 #include "imu.h"
 #include "nav_ukf.h"
 #include "gps.h"
@@ -32,7 +33,6 @@
 #include "supervisor.h"
 #include "radio.h"
 #include "util.h"
-#include "analog.h"
 #include <CoOS.h>
 #include <stdio.h>
 #include <string.h>
@@ -40,107 +40,106 @@
 loggerStruct_t loggerData __attribute__((section(".ccm")));
 
 loggerFields_t loggerFields[] = {
-    {LOG_LASTUPDATE, LOG_TYPE_U32},
-    {LOG_VOLTAGE0, LOG_TYPE_FLOAT},
-    {LOG_VOLTAGE1, LOG_TYPE_FLOAT},
-    {LOG_VOLTAGE2, LOG_TYPE_FLOAT},
-    {LOG_VOLTAGE3, LOG_TYPE_FLOAT},
-    {LOG_VOLTAGE4, LOG_TYPE_FLOAT},
-    {LOG_VOLTAGE5, LOG_TYPE_FLOAT},
-    {LOG_VOLTAGE6, LOG_TYPE_FLOAT},
-    {LOG_VOLTAGE7, LOG_TYPE_FLOAT},
-    {LOG_VOLTAGE8, LOG_TYPE_FLOAT},
-    {LOG_VOLTAGE9, LOG_TYPE_FLOAT},
-    {LOG_VOLTAGE10, LOG_TYPE_FLOAT},
-    {LOG_VOLTAGE11, LOG_TYPE_FLOAT},
-    {LOG_VOLTAGE12, LOG_TYPE_FLOAT},
-    {LOG_VOLTAGE13, LOG_TYPE_FLOAT},
-    {LOG_VOLTAGE14, LOG_TYPE_FLOAT},
-    {LOG_IMU_RATEX, LOG_TYPE_FLOAT},
-    {LOG_IMU_RATEY, LOG_TYPE_FLOAT},
-    {LOG_IMU_RATEZ, LOG_TYPE_FLOAT},
-    {LOG_IMU_ACCX, LOG_TYPE_FLOAT},
-    {LOG_IMU_ACCY, LOG_TYPE_FLOAT},
-    {LOG_IMU_ACCZ, LOG_TYPE_FLOAT},
-    {LOG_IMU_MAGX, LOG_TYPE_FLOAT},
-    {LOG_IMU_MAGY, LOG_TYPE_FLOAT},
-    {LOG_IMU_MAGZ, LOG_TYPE_FLOAT},
-    {LOG_GPS_PDOP, LOG_TYPE_FLOAT},
-    {LOG_GPS_HDOP, LOG_TYPE_FLOAT},
-    {LOG_GPS_VDOP, LOG_TYPE_FLOAT},
-    {LOG_GPS_TDOP, LOG_TYPE_FLOAT},
-    {LOG_GPS_NDOP, LOG_TYPE_FLOAT},
-    {LOG_GPS_EDOP, LOG_TYPE_FLOAT},
-    {LOG_GPS_ITOW, LOG_TYPE_U32},
-    {LOG_GPS_POS_UPDATE, LOG_TYPE_U32},
-    {LOG_GPS_LAT, LOG_TYPE_DOUBLE},
-    {LOG_GPS_LON, LOG_TYPE_DOUBLE},
-    {LOG_GPS_HEIGHT, LOG_TYPE_FLOAT},
-    {LOG_GPS_HACC, LOG_TYPE_FLOAT},
-    {LOG_GPS_VACC, LOG_TYPE_FLOAT},
-    {LOG_GPS_VEL_UPDATE, LOG_TYPE_U32},
-    {LOG_GPS_VELN, LOG_TYPE_FLOAT},
-    {LOG_GPS_VELE, LOG_TYPE_FLOAT},
-    {LOG_GPS_VELD, LOG_TYPE_FLOAT},
-    {LOG_GPS_SACC, LOG_TYPE_FLOAT},
-    {LOG_ADC_PRESSURE1, LOG_TYPE_FLOAT},
-    {LOG_ADC_PRESSURE2, LOG_TYPE_FLOAT},
-    {LOG_ADC_TEMP0, LOG_TYPE_FLOAT},
-    {LOG_ADC_VIN, LOG_TYPE_FLOAT},
-    {LOG_ADC_MAG_SIGN, LOG_TYPE_S8},
-    {LOG_UKF_Q1, LOG_TYPE_FLOAT},
-    {LOG_UKF_Q2, LOG_TYPE_FLOAT},
-    {LOG_UKF_Q3, LOG_TYPE_FLOAT},
-    {LOG_UKF_Q4, LOG_TYPE_FLOAT},
-    {LOG_UKF_POSN, LOG_TYPE_FLOAT},
-    {LOG_UKF_POSE, LOG_TYPE_FLOAT},
-    {LOG_UKF_POSD, LOG_TYPE_FLOAT},
-    {LOG_UKF_PRES_ALT, LOG_TYPE_FLOAT},
-    {LOG_UKF_ALT, LOG_TYPE_FLOAT},
-    {LOG_UKF_VELN, LOG_TYPE_FLOAT},
-    {LOG_UKF_VELE, LOG_TYPE_FLOAT},
-    {LOG_UKF_VELD, LOG_TYPE_FLOAT},
-    {LOG_MOT_MOTOR0, LOG_TYPE_S16},
-    {LOG_MOT_MOTOR1, LOG_TYPE_S16},
-    {LOG_MOT_MOTOR2, LOG_TYPE_S16},
-    {LOG_MOT_MOTOR3, LOG_TYPE_S16},
-    {LOG_MOT_MOTOR4, LOG_TYPE_S16},
-    {LOG_MOT_MOTOR5, LOG_TYPE_S16},
-    {LOG_MOT_MOTOR6, LOG_TYPE_S16},
-    {LOG_MOT_MOTOR7, LOG_TYPE_S16},
-    {LOG_MOT_MOTOR8, LOG_TYPE_S16},
-#if (PWM_HIGH_PORT > 9)
-    {LOG_MOT_MOTOR9, LOG_TYPE_S16},
-    {LOG_MOT_MOTOR10, LOG_TYPE_S16},
-    {LOG_MOT_MOTOR11, LOG_TYPE_S16},
-    {LOG_MOT_MOTOR12, LOG_TYPE_S16},
-    {LOG_MOT_MOTOR13, LOG_TYPE_S16},
-#endif
-    {LOG_MOT_THROTTLE, LOG_TYPE_FLOAT},
-    {LOG_MOT_PITCH, LOG_TYPE_FLOAT},
-    {LOG_MOT_ROLL, LOG_TYPE_FLOAT},
-    {LOG_MOT_YAW, LOG_TYPE_FLOAT},
-    {LOG_RADIO_QUALITY, LOG_TYPE_FLOAT},
-    {LOG_RADIO_CHANNEL0, LOG_TYPE_S16},
-    {LOG_RADIO_CHANNEL1, LOG_TYPE_S16},
-    {LOG_RADIO_CHANNEL2, LOG_TYPE_S16},
-    {LOG_RADIO_CHANNEL3, LOG_TYPE_S16},
-    {LOG_RADIO_CHANNEL4, LOG_TYPE_S16},
-    {LOG_RADIO_CHANNEL5, LOG_TYPE_S16},
-    {LOG_RADIO_CHANNEL6, LOG_TYPE_S16},
-    {LOG_RADIO_CHANNEL7, LOG_TYPE_S16},
-    {LOG_RADIO_CHANNEL8, LOG_TYPE_S16},
-    {LOG_RADIO_CHANNEL9, LOG_TYPE_S16},
-    {LOG_RADIO_CHANNEL10, LOG_TYPE_S16},
-    {LOG_RADIO_CHANNEL11, LOG_TYPE_S16},
-    {LOG_RADIO_CHANNEL12, LOG_TYPE_S16},
-    {LOG_RADIO_CHANNEL13, LOG_TYPE_S16},
-    {LOG_RADIO_CHANNEL14, LOG_TYPE_S16},
-    {LOG_RADIO_CHANNEL15, LOG_TYPE_S16},
-    {LOG_RADIO_CHANNEL16, LOG_TYPE_S16},
-    {LOG_RADIO_CHANNEL17, LOG_TYPE_S16},
-    {LOG_RADIO_ERRORS, LOG_TYPE_U16}
-};
+	{LOG_LASTUPDATE, LOG_TYPE_U32},
+	{LOG_VOLTAGE0, LOG_TYPE_FLOAT},
+	{LOG_VOLTAGE1, LOG_TYPE_FLOAT},
+	{LOG_VOLTAGE2, LOG_TYPE_FLOAT},
+	{LOG_VOLTAGE3, LOG_TYPE_FLOAT},
+	{LOG_VOLTAGE4, LOG_TYPE_FLOAT},
+	{LOG_VOLTAGE5, LOG_TYPE_FLOAT},
+	{LOG_VOLTAGE6, LOG_TYPE_FLOAT},
+	{LOG_VOLTAGE7, LOG_TYPE_FLOAT},
+	{LOG_VOLTAGE8, LOG_TYPE_FLOAT},
+	{LOG_VOLTAGE9, LOG_TYPE_FLOAT},
+	{LOG_VOLTAGE10, LOG_TYPE_FLOAT},
+	{LOG_VOLTAGE11, LOG_TYPE_FLOAT},
+	{LOG_VOLTAGE12, LOG_TYPE_FLOAT},
+	{LOG_VOLTAGE13, LOG_TYPE_FLOAT},
+	{LOG_VOLTAGE14, LOG_TYPE_FLOAT},
+	{LOG_IMU_RATEX, LOG_TYPE_FLOAT},
+	{LOG_IMU_RATEY, LOG_TYPE_FLOAT},
+	{LOG_IMU_RATEZ, LOG_TYPE_FLOAT},
+	{LOG_IMU_ACCX, LOG_TYPE_FLOAT},
+	{LOG_IMU_ACCY, LOG_TYPE_FLOAT},
+	{LOG_IMU_ACCZ, LOG_TYPE_FLOAT},
+	{LOG_IMU_MAGX, LOG_TYPE_FLOAT},
+	{LOG_IMU_MAGY, LOG_TYPE_FLOAT},
+	{LOG_IMU_MAGZ, LOG_TYPE_FLOAT},
+	{LOG_GPS_PDOP, LOG_TYPE_FLOAT},
+	{LOG_GPS_HDOP, LOG_TYPE_FLOAT},
+	{LOG_GPS_VDOP, LOG_TYPE_FLOAT},
+	{LOG_GPS_TDOP, LOG_TYPE_FLOAT},
+	{LOG_GPS_NDOP, LOG_TYPE_FLOAT},
+	{LOG_GPS_EDOP, LOG_TYPE_FLOAT},
+	{LOG_GPS_ITOW, LOG_TYPE_U32},
+	{LOG_GPS_POS_UPDATE, LOG_TYPE_U32},
+	{LOG_GPS_LAT, LOG_TYPE_DOUBLE},
+	{LOG_GPS_LON, LOG_TYPE_DOUBLE},
+	{LOG_GPS_HEIGHT, LOG_TYPE_FLOAT},
+	{LOG_GPS_HACC, LOG_TYPE_FLOAT},
+	{LOG_GPS_VACC, LOG_TYPE_FLOAT},
+	{LOG_GPS_VEL_UPDATE, LOG_TYPE_U32},
+	{LOG_GPS_VELN, LOG_TYPE_FLOAT},
+	{LOG_GPS_VELE, LOG_TYPE_FLOAT},
+	{LOG_GPS_VELD, LOG_TYPE_FLOAT},
+	{LOG_GPS_SACC, LOG_TYPE_FLOAT},
+	{LOG_ADC_PRESSURE1, LOG_TYPE_FLOAT},
+	{LOG_ADC_PRESSURE2, LOG_TYPE_FLOAT},
+	{LOG_ADC_TEMP0, LOG_TYPE_FLOAT},
+	{LOG_ADC_TEMP1, LOG_TYPE_FLOAT},
+	{LOG_ADC_TEMP2, LOG_TYPE_FLOAT},
+	{LOG_ADC_VIN, LOG_TYPE_FLOAT},
+	{LOG_ADC_MAG_SIGN, LOG_TYPE_S8},
+	{LOG_UKF_Q1, LOG_TYPE_FLOAT},
+	{LOG_UKF_Q2, LOG_TYPE_FLOAT},
+	{LOG_UKF_Q3, LOG_TYPE_FLOAT},
+	{LOG_UKF_Q4, LOG_TYPE_FLOAT},
+	{LOG_UKF_POSN, LOG_TYPE_FLOAT},
+	{LOG_UKF_POSE, LOG_TYPE_FLOAT},
+	{LOG_UKF_POSD, LOG_TYPE_FLOAT},
+	{LOG_UKF_PRES_ALT, LOG_TYPE_FLOAT},
+	{LOG_UKF_ALT, LOG_TYPE_FLOAT},
+	{LOG_UKF_VELN, LOG_TYPE_FLOAT},
+	{LOG_UKF_VELE, LOG_TYPE_FLOAT},
+	{LOG_UKF_VELD, LOG_TYPE_FLOAT},
+	{LOG_MOT_MOTOR0, LOG_TYPE_S16},
+	{LOG_MOT_MOTOR1, LOG_TYPE_S16},
+	{LOG_MOT_MOTOR2, LOG_TYPE_S16},
+	{LOG_MOT_MOTOR3, LOG_TYPE_S16},
+	{LOG_MOT_MOTOR4, LOG_TYPE_S16},
+	{LOG_MOT_MOTOR5, LOG_TYPE_S16},
+	{LOG_MOT_MOTOR6, LOG_TYPE_S16},
+	{LOG_MOT_MOTOR7, LOG_TYPE_S16},
+	{LOG_MOT_MOTOR8, LOG_TYPE_S16},
+	{LOG_MOT_MOTOR9, LOG_TYPE_S16},
+	{LOG_MOT_MOTOR10, LOG_TYPE_S16},
+	{LOG_MOT_MOTOR11, LOG_TYPE_S16},
+	{LOG_MOT_MOTOR12, LOG_TYPE_S16},
+	{LOG_MOT_MOTOR13, LOG_TYPE_S16},
+	{LOG_MOT_THROTTLE, LOG_TYPE_FLOAT},
+	{LOG_MOT_PITCH, LOG_TYPE_FLOAT},
+	{LOG_MOT_ROLL, LOG_TYPE_FLOAT},
+	{LOG_MOT_YAW, LOG_TYPE_FLOAT},
+	{LOG_RADIO_QUALITY, LOG_TYPE_FLOAT},
+	{LOG_RADIO_CHANNEL0, LOG_TYPE_S16},
+	{LOG_RADIO_CHANNEL1, LOG_TYPE_S16},
+	{LOG_RADIO_CHANNEL2, LOG_TYPE_S16},
+	{LOG_RADIO_CHANNEL3, LOG_TYPE_S16},
+	{LOG_RADIO_CHANNEL4, LOG_TYPE_S16},
+	{LOG_RADIO_CHANNEL5, LOG_TYPE_S16},
+	{LOG_RADIO_CHANNEL6, LOG_TYPE_S16},
+	{LOG_RADIO_CHANNEL7, LOG_TYPE_S16},
+	{LOG_RADIO_CHANNEL8, LOG_TYPE_S16},
+	{LOG_RADIO_CHANNEL9, LOG_TYPE_S16},
+	{LOG_RADIO_CHANNEL10, LOG_TYPE_S16},
+	{LOG_RADIO_CHANNEL11, LOG_TYPE_S16},
+	{LOG_RADIO_CHANNEL12, LOG_TYPE_S16},
+	{LOG_RADIO_CHANNEL13, LOG_TYPE_S16},
+	{LOG_RADIO_CHANNEL14, LOG_TYPE_S16},
+	{LOG_RADIO_CHANNEL15, LOG_TYPE_S16},
+	{LOG_RADIO_CHANNEL16, LOG_TYPE_S16},
+	{LOG_RADIO_CHANNEL17, LOG_TYPE_S16}
+    };
 
 int loggerCopy8(void *to, void *from) {
     *(uint32_t *)(to + 0) = *(uint32_t *)(from + 0);
@@ -245,81 +244,38 @@ void loggerSetup(void) {
 		loggerData.fp[i].fieldPointer = (void *)&IMU_LASTUPD;
 		break;
 	    case LOG_VOLTAGE0:
-#ifdef USE_DIGITAL_IMU
-		loggerData.fp[i].fieldPointer = (void *)&mpu6000Data.rawGyo[0];
-#else
 		loggerData.fp[i].fieldPointer = (void *)&adcData.voltages[0];
-#endif
 		break;
 	    case LOG_VOLTAGE1:
-#ifdef USE_DIGITAL_IMU
-		loggerData.fp[i].fieldPointer = (void *)&mpu6000Data.rawGyo[1];
-#else
 		loggerData.fp[i].fieldPointer = (void *)&adcData.voltages[1];
-#endif
 		break;
 	    case LOG_VOLTAGE2:
-#ifdef USE_DIGITAL_IMU
-		loggerData.fp[i].fieldPointer = (void *)&mpu6000Data.rawGyo[2];
-#else
 		loggerData.fp[i].fieldPointer = (void *)&adcData.voltages[2];
-#endif
 		break;
 	    case LOG_VOLTAGE3:
-#ifdef USE_DIGITAL_IMU
-		loggerData.fp[i].fieldPointer = (void *)&hmc5983Data.rawMag[0];
-#else
 		loggerData.fp[i].fieldPointer = (void *)&adcData.voltages[3];
-#endif
 		break;
 	    case LOG_VOLTAGE4:
-#ifdef USE_DIGITAL_IMU
-		loggerData.fp[i].fieldPointer = (void *)&hmc5983Data.rawMag[1];
-#else
 		loggerData.fp[i].fieldPointer = (void *)&adcData.voltages[4];
-#endif
 		break;
 	    case LOG_VOLTAGE5:
-#ifdef USE_DIGITAL_IMU
-		loggerData.fp[i].fieldPointer = (void *)&hmc5983Data.rawMag[2];
-#else
 		loggerData.fp[i].fieldPointer = (void *)&adcData.voltages[5];
-#endif
 		break;
 	    case LOG_VOLTAGE6:
-#ifdef HAS_AIMU
 		loggerData.fp[i].fieldPointer = (void *)&adcData.voltages[6];
-#endif
 		break;
 	    case LOG_VOLTAGE7:
-#ifdef HAS_AIMU
 		loggerData.fp[i].fieldPointer = (void *)&adcData.voltages[7];
-#else
-		loggerData.fp[i].fieldPointer = (void *)&analogData.voltages[ANALOG_VOLTS_VIN];
-#endif
 		break;
 	    case LOG_VOLTAGE8:
-#ifdef USE_DIGITAL_IMU
-		loggerData.fp[i].fieldPointer = (void *)&mpu6000Data.rawAcc[0];
-#else
 		loggerData.fp[i].fieldPointer = (void *)&adcData.voltages[8];
-#endif
 		break;
 	    case LOG_VOLTAGE9:
-#ifdef USE_DIGITAL_IMU
-		loggerData.fp[i].fieldPointer = (void *)&mpu6000Data.rawAcc[1];
-#else
 		loggerData.fp[i].fieldPointer = (void *)&adcData.voltages[9];
-#endif
 		break;
 	    case LOG_VOLTAGE10:
-#ifdef USE_DIGITAL_IMU
-		loggerData.fp[i].fieldPointer = (void *)&mpu6000Data.rawAcc[2];
-#else
 		loggerData.fp[i].fieldPointer = (void *)&adcData.voltages[10];
-#endif
 		break;
-#ifdef HAS_AIMU
 	    case LOG_VOLTAGE11:
 		loggerData.fp[i].fieldPointer = (void *)&adcData.voltages[11];
 		break;
@@ -332,7 +288,6 @@ void loggerSetup(void) {
 	    case LOG_VOLTAGE14:
 		loggerData.fp[i].fieldPointer = (void *)&adcData.voltages[14];
 		break;
-#endif
 	    case LOG_IMU_RATEX:
 		loggerData.fp[i].fieldPointer = (void *)&IMU_RATEX;
 		break;
@@ -415,24 +370,26 @@ void loggerSetup(void) {
 		loggerData.fp[i].fieldPointer = (void *)&gpsData.sAcc;
 		break;
 	    case LOG_ADC_PRESSURE1:
-		loggerData.fp[i].fieldPointer = (void *)&AQ_PRESSURE;
+		loggerData.fp[i].fieldPointer = (void *)&adcData.pressure1;
 		break;
-#ifdef HAS_AIMU
 	    case LOG_ADC_PRESSURE2:
 		loggerData.fp[i].fieldPointer = (void *)&adcData.pressure2;
 		break;
-#endif
 	    case LOG_ADC_TEMP0:
 		loggerData.fp[i].fieldPointer = (void *)&IMU_TEMP;
 		break;
-	    case LOG_ADC_VIN:
-		loggerData.fp[i].fieldPointer = (void *)&analogData.vIn;
+	    case LOG_ADC_TEMP1:
+		loggerData.fp[i].fieldPointer = (void *)&adcData.temp1;
 		break;
-#ifdef HAS_AIMU
+	    case LOG_ADC_TEMP2:
+		loggerData.fp[i].fieldPointer = (void *)&adcData.temp2;
+		break;
+	    case LOG_ADC_VIN:
+		loggerData.fp[i].fieldPointer = (void *)&adcData.vIn;
+		break;
 	    case LOG_ADC_MAG_SIGN:
 		loggerData.fp[i].fieldPointer = (void *)&adcData.magSign;
 		break;
-#endif
 	    case LOG_UKF_Q1:
 		loggerData.fp[i].fieldPointer = (void *)&UKF_Q1;
 		break;
@@ -579,9 +536,6 @@ void loggerSetup(void) {
 		break;
 	    case LOG_RADIO_CHANNEL17:
 		loggerData.fp[i].fieldPointer = (void *)&radioData.channels[17];
-		break;
-	    case LOG_RADIO_ERRORS:
-		loggerData.fp[i].fieldPointer = (void *)&RADIO_ERROR_COUNT;
 		break;
 	}
 

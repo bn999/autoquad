@@ -25,7 +25,7 @@
 #include "config.h"
 #include "aq_timer.h"
 #include "nav.h"
-#include "comm.h"
+#include "notice.h"
 #include <string.h>
 
 gimbalStruct_t gimbalData __attribute__((section(".ccm")));

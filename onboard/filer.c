@@ -13,13 +13,13 @@
     You should have received a copy of the GNU General Public License
     along with AutoQuad.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright © 2011, 2012, 2013  Bill Nesbitt
+    Copyright © 2011, 2012  Bill Nesbitt
 */
 
 #include "aq.h"
 #include "filer.h"
 #include "diskio.h"
-#include "comm.h"
+#include "notice.h"
 #include "aq_mavlink.h"
 #include "util.h"
 #include "supervisor.h"
@@ -30,7 +30,7 @@ filerStruct_t filerData;
 
 OS_STK *filerTaskStack;
 
-static int32_t filerProcessWrite(filerFileStruct_t *f) {
+int32_t filerProcessWrite(filerFileStruct_t *f) {
     uint32_t res;
     UINT bytes;
 
@@ -59,7 +59,7 @@ static int32_t filerProcessWrite(filerFileStruct_t *f) {
     return bytes;
 }
 
-static int32_t filerProcessRead(filerFileStruct_t *f) {
+int32_t filerProcessRead(filerFileStruct_t *f) {
     uint32_t res;
     UINT bytes;
 
@@ -88,7 +88,7 @@ static int32_t filerProcessRead(filerFileStruct_t *f) {
     return bytes;
 }
 
-static int32_t filerProcessSync(filerFileStruct_t *f) {
+int32_t filerProcessSync(filerFileStruct_t *f) {
     uint32_t res;
 
     if (!f->open) {
@@ -104,7 +104,7 @@ static int32_t filerProcessSync(filerFileStruct_t *f) {
     return 0;
 }
 
-static int32_t filerProcessStream(filerFileStruct_t *f) {
+int32_t filerProcessStream(filerFileStruct_t *f) {
     uint32_t res;
     UINT bytes = 0;
     uint32_t size;
@@ -118,12 +118,16 @@ static int32_t filerProcessStream(filerFileStruct_t *f) {
 	f->open = 1;
     }
 
-    // enough new to write?
-    while (f->tail > f->head || (f->head - f->tail) >= f->length/4) {
+    // anything new to write?
+    if (abs(f->head - f->tail) >= 512) {
 	if (f->head > f->tail)
 	    size = f->head - f->tail;
 	else
 	    size = f->length - f->tail;
+
+	// try to write 512 byte or more blocks
+	if (size > 512)
+	    size = size / 512 * 512;
 
 	res = f_write(&f->fp, f->buf + f->tail, size, &bytes);
 	f->tail = (f->tail + bytes) % f->length;
@@ -135,7 +139,7 @@ static int32_t filerProcessStream(filerFileStruct_t *f) {
     return bytes;
 }
 
-static int32_t filerProcessClose(filerFileStruct_t *f) {
+int32_t filerProcessClose(filerFileStruct_t *f) {
     uint32_t res = 0;;
 
     if (f->open) {
@@ -149,7 +153,7 @@ static int32_t filerProcessClose(filerFileStruct_t *f) {
 	return 0;
 }
 
-static void filerProcessRequest(filerFileStruct_t *f) {
+void filerProcessRequest(filerFileStruct_t *f) {
     if (f->function == FILER_FUNC_STREAM)
 	f->status = filerProcessStream(f);
     else if (f->function == FILER_FUNC_READ)
@@ -168,10 +172,8 @@ static void filerProcessRequest(filerFileStruct_t *f) {
 }
 
 void filerDebug(char *s, int r) {
-    static char buf[48];
-
-    sprintf(buf, "filer: %s [%d]\n", s, r);
-    AQ_NOTICE(buf);
+    sprintf(filerData.buf, "filer: %s [%d]\n", s, r);
+    AQ_NOTICE(filerData.buf);
 }
 
 // open filesystem, format if necessary, update session file
@@ -227,6 +229,7 @@ int32_t filerInitFS(void) {
 
 void filerTaskCode(void *p) {
     int firstTime = 1;
+    int initialized;
     uint32_t res;
     int i;
 
@@ -234,7 +237,7 @@ void filerTaskCode(void *p) {
 
     filerRestart:
 
-    filerData.initialized = 0;
+    initialized = 0;
     supervisorDiskWait(0);
 
     memset(&filerData.fs, 0, sizeof(FIL));
@@ -252,7 +255,6 @@ void filerTaskCode(void *p) {
     firstTime = 0;
 
     // setup fatfs
-    f_mount(0, 0);
     if ((res = f_mount(0, &filerData.fs)) != RES_OK) {
 	filerDebug("cannot register work area, aborting", res);
 	CoExitTask();
@@ -260,15 +262,17 @@ void filerTaskCode(void *p) {
     }
 
     while (1) {
-	if (!filerData.initialized) {
+	CoWaitForSingleFlag(filerData.filerFlag, 5);	// run at least every 5ms if possible
+	filerData.loops++;
+
+	if (!initialized) {
 	    if (filerInitFS() < 0)
 		goto filerRestart;
 	    else {
-		filerData.initialized = 1;
+		initialized = 1;
+		supervisorDiskWait(1);
 	    }
 	}
-
-	supervisorDiskWait(1);
 
 	for (i = 0; i < FILER_MAX_FILES; i++) {
 	    if (filerData.files[i].function > FILER_FUNC_NONE) {
@@ -286,10 +290,7 @@ void filerTaskCode(void *p) {
 	    }
 	}
 
-	filerData.loops++;
-
 	CoClearFlag(filerData.filerFlag);
-	CoWaitForSingleFlag(filerData.filerFlag, 5);	// run at least every 5ms if possible
     }
 }
 
@@ -300,9 +301,6 @@ void filerInit(void) {
     filerTaskStack = aqStackInit(FILER_STACK_SIZE, "FILER");
 
     filerData.filerTask = CoCreateTask(filerTaskCode, (void *)0, FILER_PRIORITY, &filerTaskStack[FILER_STACK_SIZE-1], FILER_STACK_SIZE);
-
-    // wait for card to startup
-    yield(500);
 }
 
 // returns file handle or -1 upon failure
@@ -325,8 +323,8 @@ int8_t filerGetHandle(char *fileName) {
 
 int32_t filerReadWrite(filerFileStruct_t *f, void *buf, int32_t seek, uint32_t length, uint8_t function) {
     // handle allocated yet?
-    if (!f->allocated || !filerData.initialized)
-	return -1;
+    if (!f->allocated)
+	    return -1;
 
     f->buf = buf;
     f->function = function;
@@ -388,11 +386,11 @@ int32_t filerClose(int8_t handle) {
     return f->status;
 }
 
-int32_t filerGetHead(int8_t handle) {
+inline int32_t filerGetHead(int8_t handle) {
     return filerData.files[handle].head;
 }
 
-void filerSetHead(int8_t handle, int32_t head) {
+inline void filerSetHead(int8_t handle, int32_t head) {
     filerData.files[handle].head = head;
 }
 

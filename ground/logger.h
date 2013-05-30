@@ -125,7 +125,6 @@ enum {
 	LOG_RADIO_CHANNEL15,
 	LOG_RADIO_CHANNEL16,
 	LOG_RADIO_CHANNEL17,
-	LOG_RADIO_ERRORS,
 	LOG_NUM_IDS
 };
 
@@ -178,10 +177,6 @@ typedef struct {
 	float rateAux[3];
 	float accAux[3];
 	float magAux[3];
-	float magSign;
-	float ukfAlt;
-	float pressAlt;
-
 	unsigned int gpsPosUpdate;
 	double lat, lon;
 	float gpsAlt;
@@ -189,17 +184,11 @@ typedef struct {
 	unsigned int gpsVelUpdate;
 	float gpsVel[3];
 	float gpsVelAcc;
-	float gpsVAcc;
-	float gpsItow;
-
 	float pos[3];
 	float vel[3];
 	short int motors[14];
 	short int throttle;
-//	float extra[4];
-	float radioQuality;
-	short int radioChannels[18];
-	unsigned int radioErrors;
+	float extra[4];
 	char ckA, ckB;
 } __attribute__((packed)) loggerRecord_t;
 

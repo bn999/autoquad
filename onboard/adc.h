@@ -13,7 +13,7 @@
     You should have received a copy of the GNU General Public License
     along with AutoQuad.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright © 2011, 2012, 2013  Bill Nesbitt
+    Copyright © 2011, 2012  Bill Nesbitt
 */
 
 #ifndef _adc_h
@@ -38,10 +38,12 @@
 #define ADC_SENSORS		15
 #define ADC_CHANNELS		16
 
+#define ADC_ROOM_TEMP		20.0f
+
 #define ADC_REF_VOLTAGE		3.3f
 #define ADC_DIVISOR		((double)ADC_REF_VOLTAGE / (double)4096.0 / (double)ADC_SAMPLES)
 
-#define ADC_VIN_SLOPE		((ANALOG_VIN_RTOP + ANALOG_VIN_RBOT) / ANALOG_VIN_RBOT)
+#define ADC_VIN_SLOPE		((ADC_VIN_RTOP + 1.33f) / 1.33f)    // Rbot = 1.33K
 #define ADC_VIN_OFFSET		0.0f
 
 #define ADC_IDG_TEMP_OFFSET	1.25f			    // volts (IDG500 PTATS)
@@ -59,7 +61,7 @@
 
 #define ADC_TEMP_SMOOTH		0.0113f
 
-#define ADC_RATE_CALIB_SAMPLES	25
+#define ADC_RATE_CALIB_SAMPLES	50
 
 #define ADC_MAG_SIGN		digitalGet(adcData.magSetReset)
 
@@ -99,14 +101,19 @@ typedef struct {
     OS_TID adcTask;
     OS_FlagID adcFlag;
 
+//    uint16_t adc123Raw1[ADC_CHANNELS*3];
+//    uint16_t adc123Raw2[ADC_CHANNELS*3];
     unsigned long interrupt123Sums[ADC_SENSORS];
 
     unsigned long volatile adcSums[ADC_SENSORS];
     unsigned long channelSums[ADC_SENSORS];
     float volatile voltages[ADC_SENSORS];
 
+    float sinIMURot, cosIMURot;
     float temp1, temp2, temp3;
     float temperature;
+    float vIn;
+    float batCellCount;
     float pressure1;
     float pressure2;
     float pressure;

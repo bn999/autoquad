@@ -13,7 +13,7 @@
     You should have received a copy of the GNU General Public License
     along with AutoQuad.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright © 2011, 2012, 2013  Bill Nesbitt
+    Copyright © 2011, 2012  Bill Nesbitt
 */
 
 #ifndef _nav_ukf_h
@@ -30,7 +30,7 @@
 #define SIM_V                   16		// process noise
 #define SIM_N                   3		// max observation noise
 
-#define UKF_GYO_AVG_NUM		40
+#define UKF_GYO_AVG_NUM		20
 
 #define UKF_VELN		navUkfData.x[0]
 #define UKF_VELE		navUkfData.x[1]
@@ -96,6 +96,5 @@ extern void UKFPressureAdjust(float altitude);
 extern void navUkfQuatExtractEuler(float *q, float *yaw, float *pitch, float *roll);
 extern void navUkfZeroRate(float zRate, int axis);
 extern void navUkfFinish(void);
-extern void navUkfRotateVectorByRevQuat(float *vr, float *v, float *q);
 
 #endif

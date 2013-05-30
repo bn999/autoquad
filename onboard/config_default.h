@@ -13,12 +13,12 @@
     You should have received a copy of the GNU General Public License
     along with AutoQuad.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright © 2011, 2012, 2013  Bill Nesbitt
+    Copyright © 2011, 2012  Bill Nesbitt
 */
 
-#define DEFAULT_CONFIG_VERSION	    107
+#define DEFAULT_CONFIG_VERSION	    103
 
-#define DEFAULT_RADIO_TYPE	    0		// 0 == Spektrum 11bit, 1 == Spektrum 10bit, 2 == SBUS, 3 == PPM, 4 == SUMD
+#define DEFAULT_RADIO_TYPE	    0		// 0 == Spektrum 11bit, 1 == Spektrum 10bit, 2 == Futaba, 3 == PPM, 4 == PWM
 #define DEFAULT_RADIO_THRO_CH	    0
 #define DEFAULT_RADIO_ROLL_CH	    1
 #define DEFAULT_RADIO_PITC_CH	    2
@@ -35,10 +35,6 @@
 #define DEFAULT_PPM_SCALER	    3		// good for FrSky & Graupner HOTT
 #define DEFAULT_PPM_THROT_LOW	    1090	// throttle value at low stick
 #define DEFAULT_PPM_CHAN_MID	    1512	// middle of the stick range
-
-#define DEFAULT_SIG_LED_1_PRT       0.0f        // External Led(1) port, 0.0f to disable
-#define DEFAULT_SIG_LED_2_PRT       0.0f        // External Led(2) port, 0.0f to disable
-#define DEFAULT_SIG_BEEP_PRT        0.0f        // negative sign before port number when using a piezo speaker, no sign when using a piezo buzzer
 
 #define DEFAULT_CTRL_PID_TYPE	    0		// 0 == parallel TILT/RATE PIDs, 1 == cascading TILT/RATE PIDs
 
@@ -91,6 +87,9 @@
 #define DEFAULT_CTRL_YAW_ANG_IM	    0.04f
 #define DEFAULT_CTRL_YAW_ANG_DM	    0.0f
 #define DEFAULT_CTRL_YAW_ANG_OM	    1.25f
+
+#define DEFAULT_GPS_BAUD_RATE	    230400
+#define DEFAULT_GPS_RATE	    200		// ms per cycle (5Hz)
 
 #define DEFAULT_MOT_FRAME	    0		// 0 == custom, 1 == '+' configuration, 2 == 'x', 3 == hex
 #define DEFAULT_MOT_START	    1125
@@ -159,18 +158,9 @@
 #define DEFAULT_MOT_PWRD_14_Y	    0.0
 
 
-#define DEFAULT_COMM_BAUD1	    115200
-#define DEFAULT_COMM_BAUD2	    230400
-#define DEFAULT_COMM_BAUD3	    3000000
-#define DEFAULT_COMM_BAUD4	    460800
-#define DEFAULT_COMM_STREAM_TYP1    COMM_TYPE_MAVLINK
-#define DEFAULT_COMM_STREAM_TYP2    0
-#define DEFAULT_COMM_STREAM_TYP3    0
-#define DEFAULT_COMM_STREAM_TYP4    0
-
+#define DEFAULT_DOWNLINK_BAUD	    115200
 
 #define DEFAULT_TELEMETRY_RATE	    20		// loops between reports
-
 
 #define DEFAULT_NAV_MAX_SPEED	    5.0f	// m/s
 #define DEFAULT_NAV_MAX_DECENT	    1.5f	// m/s

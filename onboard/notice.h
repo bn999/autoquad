@@ -16,15 +16,27 @@
     Copyright © 2011, 2012  Bill Nesbitt
 */
 
-#ifndef _aq_math_h
-#define _aq_math_h
+#ifndef _notice_h
+#define _notice_h
 
-#include "arm_math.h"
+#include "aq_mavlink.h"
+#include <CoOS.h>
 
-extern void matrixInit(arm_matrix_instance_f32 *m, int rows, int cols);
-extern void matrixFree(arm_matrix_instance_f32 *m);
-extern void matrixDump(char *name, arm_matrix_instance_f32 *m);
-extern int qrDecompositionT_f32(arm_matrix_instance_f32 *A, arm_matrix_instance_f32 *Q, arm_matrix_instance_f32 *R);
-extern void matrixDiv_f32(arm_matrix_instance_f32 *X, arm_matrix_instance_f32 *A, arm_matrix_instance_f32 *B, arm_matrix_instance_f32 *Q, arm_matrix_instance_f32 *R, arm_matrix_instance_f32 *AQ);
+#define NOTICE_STACK_SIZE	64
+#define NOTICE_PRIORITY		50
+
+#define NOTICE_QUEUE_DEPTH	20
+
+typedef struct {
+    OS_TID noticeTask;
+    OS_EventID notices;
+    void *noticeQueue[NOTICE_QUEUE_DEPTH];
+    int8_t initialized;
+} noticeStruct_t;
+
+extern noticeStruct_t noticeData;
+
+extern void noticeInit(void);
+extern void noticeSend(const char *s);
 
 #endif

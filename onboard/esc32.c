@@ -19,7 +19,7 @@
 #include "aq.h"
 #include "esc32.h"
 #include "1wire.h"
-#include "comm.h"
+#include "notice.h"
 #include "filer.h"
 #include "util.h"
 #include <stdio.h>
@@ -69,12 +69,7 @@ const char *esc32ParameterStrings[] = {
     "START_STEPS_PERIOD",
     "START_STEPS_ACCEL",
     "PWM_LOWPASS",
-    "RPM_MEAS_LP",
-    "SERVO_DUTY",
-    "SERVO_P",
-    "SERVO_D",
-    "SERVO_MAX_RATE",
-    "SERVO_SCALE"
+    "RPM_MEAS_LP"
 };
 
 float esc32ReadParamTransaction(uint8_t paramId) {

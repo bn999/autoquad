@@ -13,7 +13,7 @@
     You should have received a copy of the GNU General Public License
     along with AutoQuad.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright © 2011, 2012, 2013  Bill Nesbitt
+    Copyright © 2011, 2012  Bill Nesbitt
 */
 
 #ifndef _config_h
@@ -21,13 +21,12 @@
 
 #include "aq.h"
 
-#include "config_default.h"
+#define CONFIG_HEADER	    "config_default.h"
 
 #define CONFIG_FILE_NAME	    "params.txt"
 #define CONFIG_FILE_BUF_SIZE	    512
 #define CONFIG_LINE_BUF_SIZE	    128
 
-// param names must be kept <= 16 chars for mavlink
 enum configParameters {
     CONFIG_VERSION = 0,
     RADIO_TYPE,
@@ -88,6 +87,8 @@ enum configParameters {
     CTRL_YAW_ANG_IM,
     CTRL_YAW_ANG_DM,
     CTRL_YAW_ANG_OM,
+    GPS_BAUD_RATE,
+    GPS_RATE,
     MOT_FRAME,
     MOT_START,
     MOT_MIN,
@@ -152,14 +153,7 @@ enum configParameters {
     MOT_PWRD_14_P,
     MOT_PWRD_14_R,
     MOT_PWRD_14_Y,
-    COMM_BAUD1,
-    COMM_BAUD2,
-    COMM_BAUD3,
-    COMM_BAUD4,
-    COMM_STREAM_TYP1,
-    COMM_STREAM_TYP2,
-    COMM_STREAM_TYP3,
-    COMM_STREAM_TYP4,
+    DOWNLINK_BAUD,
     TELEMETRY_RATE,
     NAV_MAX_SPEED,
     NAV_MAX_DECENT,
@@ -397,9 +391,6 @@ enum configParameters {
     L1_ATT_MM_R14,
     L1_ATT_MM_P14,
     L1_ATT_MM_Y14,
-    SIG_LED_1_PRT,
-    SIG_LED_2_PRT,
-    SIG_BEEP_PRT,
     CONFIG_NUM_PARAMS
 };
 
@@ -421,7 +412,5 @@ extern unsigned int configParameterWrite(void *data);
 extern int8_t configReadFile(char *fname);
 extern int8_t configWriteFile(char *fname);
 extern void configSetParamByID(int id, float value);
-extern int8_t configFormatParam(char *buf, int n);
-extern int configParseParams(char *fileBuf, int size, int p1);
 
 #endif

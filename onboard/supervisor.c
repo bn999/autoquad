@@ -13,26 +13,22 @@
     You should have received a copy of the GNU General Public License
     along with AutoQuad.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright © 2011, 2012, 2013  Bill Nesbitt
+    Copyright © 2011, 2012  Bill Nesbitt
 */
 
 #include "aq.h"
 #include "config.h"
 #include "supervisor.h"
 #include "aq_mavlink.h"
-#include "comm.h"
+#include "notice.h"
 #include "digital.h"
 #include "radio.h"
 #include "nav.h"
-#include "analog.h"
+#include "adc.h"
 #include "aq_timer.h"
 #include "util.h"
-#ifdef USE_SIGNALING
-   #include "signaling.h"
-#endif
 #include <stdlib.h>
 #include <string.h>
-
 
 supervisorStruct_t supervisorData __attribute__((section(".ccm")));
 
@@ -72,12 +68,12 @@ void supervisorCreateSOCTable(void) {
 
 void supervisorArm(void) {
     supervisorData.state = STATE_ARMED;
-    AQ_NOTICE("Armed\n");
+    AQ_NOTICE("Supervisor: armed\n");
 }
 
 void supervisorDisarm(void) {
     supervisorData.state = STATE_DISARMED;
-    AQ_NOTICE("Disarmed\n");
+    AQ_NOTICE("Supervisor: disarmed\n");
 }
 
 void supervisorTaskCode(void *unused) {
@@ -86,12 +82,12 @@ void supervisorTaskCode(void *unused) {
     AQ_NOTICE("Supervisor task started\n");
 
     // wait for ADC vIn data
-    while (analogData.batCellCount == 0)
+    while (adcData.batCellCount == 0)
 	yield(100);
 
     supervisorCreateSOCTable();
 
-    supervisorData.vInLPF = analogData.vIn;
+    supervisorData.vInLPF = adcData.vIn;
     supervisorData.soc = 100.0f;
 
     while (1) {
@@ -172,7 +168,7 @@ void supervisorTaskCode(void *unused) {
 	}
 
 	// smooth vIn readings
-	supervisorData.vInLPF += (analogData.vIn - supervisorData.vInLPF) * 0.05f;
+	supervisorData.vInLPF += (adcData.vIn - supervisorData.vInLPF) * 0.05f;
 
 	// determine battery state of charge
 	supervisorData.soc = supervisorSOCTableLookup(supervisorData.vInLPF);
@@ -193,13 +189,13 @@ void supervisorTaskCode(void *unused) {
 	}
 
 	// low battery
-	if (!(supervisorData.state & STATE_LOW_BATTERY1) && supervisorData.vInLPF < (p[SPVR_LOW_BAT1]*analogData.batCellCount)) {
+	if (!(supervisorData.state & STATE_LOW_BATTERY1) && supervisorData.vInLPF < (p[SPVR_LOW_BAT1]*adcData.batCellCount)) {
 	    supervisorData.state |= STATE_LOW_BATTERY1;
 	    AQ_NOTICE("Warning: Low battery stage 1\n");
 
 	    // TODO: something
 	}
-	else if (!(supervisorData.state & STATE_LOW_BATTERY2) && supervisorData.vInLPF < (p[SPVR_LOW_BAT2]*analogData.batCellCount)) {
+	else if (!(supervisorData.state & STATE_LOW_BATTERY2) && supervisorData.vInLPF < (p[SPVR_LOW_BAT2]*adcData.batCellCount)) {
 	    supervisorData.state |= STATE_LOW_BATTERY2;
 	    AQ_NOTICE("Warning: Low battery stage 2\n");
 
@@ -207,10 +203,6 @@ void supervisorTaskCode(void *unused) {
 	}
 
 	count++;
-
-        #ifdef USE_SIGNALING
-	    signalingEvent();
-        #endif
     }
 }
 

@@ -13,17 +13,19 @@
     You should have received a copy of the GNU General Public License
     along with AutoQuad.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright © 2011, 2012, 2013  Bill Nesbitt
+    Copyright © 2011, 2012  Bill Nesbitt
 */
 
 #include "aq.h"
-#ifdef HAS_AIMU
-#include "analog.h"
 #include "imu.h"
-#include "comm.h"
+#include "notice.h"
 #include "aq_timer.h"
 #include "util.h"
 #include "config.h"
+#include "downlink.h"
+#include "motors.h"
+#include "radio.h"
+#include "aq_mavlink.h"
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
@@ -56,6 +58,15 @@ float adcT1VoltsToTemp(float volts) {
 
 float adcVsenseToVin(float volts) {
     return (volts - ADC_VIN_OFFSET) * ADC_VIN_SLOPE;
+}
+
+void adcCalcRot(void) {
+    float rotAngle;
+
+    rotAngle = p[IMU_ROT] * DEG_TO_RAD;
+
+    adcData.sinIMURot = sinf(rotAngle);
+    adcData.cosIMURot = cosf(rotAngle);
 }
 
 void adcTaskCode(void *unused) {
@@ -98,24 +109,24 @@ void adcTaskCode(void *unused) {
 	dRateVoltageY = (double)adcData.adcSums[ADC_VOLTS_RATEY] * ADC_DIVISOR * (1.0 / 4.0);
 	dRateVoltageZ = (double)adcData.adcSums[ADC_VOLTS_RATEZ] * ADC_DIVISOR * (1.0 / 4.0);
 
+	// we don't care about temperature drift here
+//	x = +(dRateVoltageX + adcData.rateBiasX) / p[IMU_GYO_SCAL_X];
+//	y = -(dRateVoltageY + adcData.rateBiasY) / p[IMU_GYO_SCAL_Y];
+//	z = -(dRateVoltageZ + adcData.rateBiasZ) / p[IMU_GYO_SCAL_Z];
 	// rates
-	x = +(dRateVoltageX + adcData.rateBiasX + p[IMU_GYO_BIAS1_X]*dTemp + p[IMU_GYO_BIAS2_X]*dTemp2 + p[IMU_GYO_BIAS3_X]*dTemp3);// / p[IMU_GYO_SCAL_X];
-	y = -(dRateVoltageY + adcData.rateBiasY + p[IMU_GYO_BIAS1_Y]*dTemp + p[IMU_GYO_BIAS2_Y]*dTemp2 + p[IMU_GYO_BIAS3_Y]*dTemp3);// / p[IMU_GYO_SCAL_Y];
-	z = -(dRateVoltageZ + adcData.rateBiasZ + p[IMU_GYO_BIAS1_Z]*dTemp + p[IMU_GYO_BIAS2_Z]*dTemp2 + p[IMU_GYO_BIAS3_Z]*dTemp3);// / p[IMU_GYO_SCAL_Z];
+	x = +(dRateVoltageX + adcData.rateBiasX + p[IMU_GYO_BIAS1_X]*dTemp + p[IMU_GYO_BIAS2_X]*dTemp2 + p[IMU_GYO_BIAS3_X]*dTemp3) / p[IMU_GYO_SCAL_X];
+	y = -(dRateVoltageY + adcData.rateBiasY + p[IMU_GYO_BIAS1_Y]*dTemp + p[IMU_GYO_BIAS2_Y]*dTemp2 + p[IMU_GYO_BIAS3_Y]*dTemp3) / p[IMU_GYO_SCAL_Y];
+	z = -(dRateVoltageZ + adcData.rateBiasZ + p[IMU_GYO_BIAS1_Z]*dTemp + p[IMU_GYO_BIAS2_Z]*dTemp2 + p[IMU_GYO_BIAS3_Z]*dTemp3) / p[IMU_GYO_SCAL_Z];
 
 	a = x + y*p[IMU_GYO_ALGN_XY] + z*p[IMU_GYO_ALGN_XZ];
 	b = x*p[IMU_GYO_ALGN_YX] + y + z*p[IMU_GYO_ALGN_YZ];
 	c = x*p[IMU_GYO_ALGN_ZX] + y*p[IMU_GYO_ALGN_ZY] + z;
 
-	a /= p[IMU_GYO_SCAL_X];
-	b /= p[IMU_GYO_SCAL_Y];
-	c /= p[IMU_GYO_SCAL_Z];
-
-	adcData.dRateX = (adcData.dRateX + a * imuData.cosRot - b * imuData.sinRot) * 0.5f;
-	adcData.dRateY = (adcData.dRateY + b * imuData.cosRot + a * imuData.sinRot) * 0.5f;
+	adcData.dRateX = (adcData.dRateX + a * adcData.cosIMURot - b * adcData.sinIMURot) * 0.5f;
+	adcData.dRateY = (adcData.dRateY + b * adcData.cosIMURot + a * adcData.sinIMURot) * 0.5f;
 	adcData.dRateZ = (adcData.dRateZ + c) * 0.5f;
-//	adcData.dRateX = a * imuData.cosRot - b * imuData.sinRot;
-//	adcData.dRateY = b * imuData.cosRot + a * imuData.sinRot;
+//	adcData.dRateX = a * adcData.cosIMURot - b * adcData.sinIMURot;
+//	adcData.dRateY = b * adcData.cosIMURot + a * adcData.sinIMURot;
 //	adcData.dRateZ = c;
 
 	// notify IMU of double rate GYO readings are ready
@@ -168,47 +179,43 @@ void adcTaskCode(void *unused) {
 	    adcData.temperature = adcData.temp3;
 
 	    // temperature difference
-	    dTemp = adcData.temperature - IMU_ROOM_TEMP;
+	    dTemp = adcData.temperature - ADC_ROOM_TEMP;
 	    dTemp2 = dTemp*dTemp;
 	    dTemp3 = dTemp2*dTemp;
 
 	    // rates
-	    x = +(adcData.voltages[ADC_VOLTS_RATEX] + adcData.rateBiasX + p[IMU_GYO_BIAS1_X]*dTemp + p[IMU_GYO_BIAS2_X]*dTemp2 + p[IMU_GYO_BIAS3_X]*dTemp3);// / p[IMU_GYO_SCAL_X];
-	    y = -(adcData.voltages[ADC_VOLTS_RATEY] + adcData.rateBiasY + p[IMU_GYO_BIAS1_Y]*dTemp + p[IMU_GYO_BIAS2_Y]*dTemp2 + p[IMU_GYO_BIAS3_Y]*dTemp3);// / p[IMU_GYO_SCAL_Y];
-	    z = -(adcData.voltages[ADC_VOLTS_RATEZ] + adcData.rateBiasZ + p[IMU_GYO_BIAS1_Z]*dTemp + p[IMU_GYO_BIAS2_Z]*dTemp2 + p[IMU_GYO_BIAS3_Z]*dTemp3);// / p[IMU_GYO_SCAL_Z];
+	    x = +(adcData.voltages[ADC_VOLTS_RATEX] + adcData.rateBiasX + p[IMU_GYO_BIAS1_X]*dTemp + p[IMU_GYO_BIAS2_X]*dTemp2 + p[IMU_GYO_BIAS3_X]*dTemp3) / p[IMU_GYO_SCAL_X];
+	    y = -(adcData.voltages[ADC_VOLTS_RATEY] + adcData.rateBiasY + p[IMU_GYO_BIAS1_Y]*dTemp + p[IMU_GYO_BIAS2_Y]*dTemp2 + p[IMU_GYO_BIAS3_Y]*dTemp3) / p[IMU_GYO_SCAL_Y];
+	    z = -(adcData.voltages[ADC_VOLTS_RATEZ] + adcData.rateBiasZ + p[IMU_GYO_BIAS1_Z]*dTemp + p[IMU_GYO_BIAS2_Z]*dTemp2 + p[IMU_GYO_BIAS3_Z]*dTemp3) / p[IMU_GYO_SCAL_Z];
 
 	    a = x + y*p[IMU_GYO_ALGN_XY] + z*p[IMU_GYO_ALGN_XZ];
 	    b = x*p[IMU_GYO_ALGN_YX] + y + z*p[IMU_GYO_ALGN_YZ];
 	    c = x*p[IMU_GYO_ALGN_ZX] + y*p[IMU_GYO_ALGN_ZY] + z;
 
-	    a /= p[IMU_GYO_SCAL_X];
-	    b /= p[IMU_GYO_SCAL_Y];
-	    c /= p[IMU_GYO_SCAL_Z];
-
-	    adcData.rateX = a * imuData.cosRot - b * imuData.sinRot;
-	    adcData.rateY = b * imuData.cosRot + a * imuData.sinRot;
+	    adcData.rateX = a * adcData.cosIMURot - b * adcData.sinIMURot;
+	    adcData.rateY = b * adcData.cosIMURot + a * adcData.sinIMURot;
 	    adcData.rateZ = c;
 
 	    // Vin
-	    analogData.vIn = analogData.vIn * (1.0f - ADC_TEMP_SMOOTH) + adcVsenseToVin(adcData.voltages[ADC_VOLTS_VIN]) * ADC_TEMP_SMOOTH;
+	    adcData.vIn = adcData.vIn * (1.0f - ADC_TEMP_SMOOTH) + adcVsenseToVin(adcData.voltages[ADC_VOLTS_VIN]) * ADC_TEMP_SMOOTH;
 
 	    // ADXL335: bias
 	    x = -(adcData.voltages[ADC_VOLTS_ACCX] + p[IMU_ACC_BIAS_X] + p[IMU_ACC_BIAS1_X]*dTemp + p[IMU_ACC_BIAS2_X]*dTemp2 + p[IMU_ACC_BIAS3_X]*dTemp3);
 	    y = +(adcData.voltages[ADC_VOLTS_ACCY] + p[IMU_ACC_BIAS_Y] + p[IMU_ACC_BIAS1_Y]*dTemp + p[IMU_ACC_BIAS2_Y]*dTemp2 + p[IMU_ACC_BIAS3_X]*dTemp3);
 	    z = -(adcData.voltages[ADC_VOLTS_ACCZ] + p[IMU_ACC_BIAS_Z] + p[IMU_ACC_BIAS1_Z]*dTemp + p[IMU_ACC_BIAS2_Z]*dTemp2 + p[IMU_ACC_BIAS3_X]*dTemp3);
 
+	    // scale
+	    x /= (p[IMU_ACC_SCAL_X] + p[IMU_ACC_SCAL1_X]*dTemp + p[IMU_ACC_SCAL2_X]*dTemp2 + p[IMU_ACC_SCAL3_X]*dTemp3);
+	    y /= (p[IMU_ACC_SCAL_Y] + p[IMU_ACC_SCAL1_Y]*dTemp + p[IMU_ACC_SCAL2_Y]*dTemp2 + p[IMU_ACC_SCAL3_Y]*dTemp3);
+	    z /= (p[IMU_ACC_SCAL_Z] + p[IMU_ACC_SCAL1_Z]*dTemp + p[IMU_ACC_SCAL2_Z]*dTemp2 + p[IMU_ACC_SCAL3_Z]*dTemp3);
+
 	    // misalignment
 	    a = x + y*p[IMU_ACC_ALGN_XY] + z*p[IMU_ACC_ALGN_XZ];
 	    b = x*p[IMU_ACC_ALGN_YX] + y + z*p[IMU_ACC_ALGN_YZ];
 	    c = x*p[IMU_ACC_ALGN_ZX] + y*p[IMU_ACC_ALGN_ZY] + z;
 
-	    // scale
-	    a /= (p[IMU_ACC_SCAL_X] + p[IMU_ACC_SCAL1_X]*dTemp + p[IMU_ACC_SCAL2_X]*dTemp2 + p[IMU_ACC_SCAL3_X]*dTemp3);
-	    b /= (p[IMU_ACC_SCAL_Y] + p[IMU_ACC_SCAL1_Y]*dTemp + p[IMU_ACC_SCAL2_Y]*dTemp2 + p[IMU_ACC_SCAL3_Y]*dTemp3);
-	    c /= (p[IMU_ACC_SCAL_Z] + p[IMU_ACC_SCAL1_Z]*dTemp + p[IMU_ACC_SCAL2_Z]*dTemp2 + p[IMU_ACC_SCAL3_Z]*dTemp3);
-
-	    adcData.accX = a * imuData.cosRot - b * imuData.sinRot;
-	    adcData.accY = b * imuData.cosRot + a * imuData.sinRot;
+	    adcData.accX = a * adcData.cosIMURot - b * adcData.sinIMURot;
+	    adcData.accY = b * adcData.cosIMURot + a * adcData.sinIMURot;
 	    adcData.accZ = c;
 
 #ifdef ADC_PRESSURE_3V3
@@ -236,18 +243,18 @@ void adcTaskCode(void *unused) {
 	    // store the mag sign used for this iteration
 	    adcData.magSign = (magSign ? -1 : 1);
 
+	    // scale
+	    x /= (p[IMU_MAG_SCAL_X] + p[IMU_MAG_SCAL1_X]*dTemp + p[IMU_MAG_SCAL2_X]*dTemp2 + p[IMU_MAG_SCAL3_X]*dTemp3);
+	    y /= (p[IMU_MAG_SCAL_Y] + p[IMU_MAG_SCAL1_Y]*dTemp + p[IMU_MAG_SCAL2_Y]*dTemp2 + p[IMU_MAG_SCAL3_Y]*dTemp3);
+	    z /= (p[IMU_MAG_SCAL_Z] + p[IMU_MAG_SCAL1_Z]*dTemp + p[IMU_MAG_SCAL2_Z]*dTemp2 + p[IMU_MAG_SCAL3_Z]*dTemp3);
+
 	    // misalignment
 	    a = x + y*p[IMU_MAG_ALGN_XY] + z*p[IMU_MAG_ALGN_XZ];
 	    b = x*p[IMU_MAG_ALGN_YX] + y + z*p[IMU_MAG_ALGN_YZ];
 	    c = x*p[IMU_MAG_ALGN_ZX] + y*p[IMU_MAG_ALGN_ZY] + z;
 
-	    // scale
-	    a /= (p[IMU_MAG_SCAL_X] + p[IMU_MAG_SCAL1_X]*dTemp + p[IMU_MAG_SCAL2_X]*dTemp2 + p[IMU_MAG_SCAL3_X]*dTemp3);
-	    b /= (p[IMU_MAG_SCAL_Y] + p[IMU_MAG_SCAL1_Y]*dTemp + p[IMU_MAG_SCAL2_Y]*dTemp2 + p[IMU_MAG_SCAL3_Y]*dTemp3);
-	    c /= (p[IMU_MAG_SCAL_Z] + p[IMU_MAG_SCAL1_Z]*dTemp + p[IMU_MAG_SCAL2_Z]*dTemp2 + p[IMU_MAG_SCAL3_Z]*dTemp3);
-
-	    adcData.magX = a * imuData.cosRot - b * imuData.sinRot;
-	    adcData.magY = b * imuData.cosRot + a * imuData.sinRot;
+	    adcData.magX = a * adcData.cosIMURot - b * adcData.sinIMURot;
+	    adcData.magY = b * adcData.cosIMURot + a * adcData.sinIMURot;
 	    adcData.magZ = c;
 
 	    sumMagX += adcData.voltages[ADC_VOLTS_MAGX];
@@ -290,10 +297,8 @@ void adcCalibOffsets(void) {
 
     delay(100);
 
-#ifndef USE_VN100
-#ifndef USE_DIGITAL_IMU
+#ifndef IMU_USE_VN100
     imuQuasiStatic(ADC_RATE_CALIB_SAMPLES);
-#endif
 #endif
 
     sumRate[0] = sumRate[1] = sumRate[2] = 0.0;
@@ -310,7 +315,7 @@ void adcCalibOffsets(void) {
 	sumRate[2] += adcData.voltages[ADC_VOLTS_RATEZ];
     }
 
-    dTemp = adcData.temperature - IMU_ROOM_TEMP;
+    dTemp = adcData.temperature - ADC_ROOM_TEMP;
     dTemp2 = dTemp*dTemp;
     dTemp3 = dTemp*dTemp2;
 
@@ -334,17 +339,20 @@ void adcInit(void) {
 
     memset((void *)&adcData, 0, sizeof(adcData));
 
+    // calculate IMU rotation
+    adcCalcRot();
+
     // energize mag's set/reset circuit
     adcData.magSetReset = digitalInit(GPIOE, GPIO_Pin_10);
     digitalHi(adcData.magSetReset);
 
     // use auto-zero function of gyros
     adcData.rateAutoZero = digitalInit(GPIOE, GPIO_Pin_8);
-//    delay(200);
-//    digitalHi(adcData.rateAutoZero);
-//    delay(20);
+    delay(200);
+    digitalHi(adcData.rateAutoZero);
+    delay(20);
     digitalLo(adcData.rateAutoZero);
-//    delay(20);
+    delay(20);
 
     // bring ACC's SELF TEST line low
     adcData.accST = digitalInit(GPIOE, GPIO_Pin_12);
@@ -371,10 +379,11 @@ void adcInit(void) {
 
     adcData.sample = ADC_SAMPLES - 1;
 
-    // Use STM32F4's Triple Regular Simultaneous Mode capable of ~ 6M samples per second
+    // Use STM32F2's Triple Regular Simultaneous Mode capable of ~ 6M samples per second
 
-    DMA_DeInit(ADC_DMA_STREAM);
-    DMA_InitStructure.DMA_Channel = ADC_DMA_CHANNEL;
+    // DMA2 Stream 0, Channel 0 configuration (ADC1)
+    DMA_DeInit(DMA2_Stream0);
+    DMA_InitStructure.DMA_Channel = DMA_Channel_0;
     DMA_InitStructure.DMA_Memory0BaseAddr = (uint32_t)adcDMAData.adc123Raw1;
     DMA_InitStructure.DMA_PeripheralBaseAddr = ((uint32_t)0x40012308);
     DMA_InitStructure.DMA_DIR = DMA_DIR_PeripheralToMemory;
@@ -389,14 +398,15 @@ void adcInit(void) {
     DMA_InitStructure.DMA_FIFOThreshold = DMA_FIFOThreshold_Full;
     DMA_InitStructure.DMA_MemoryBurst = DMA_MemoryBurst_Single;
     DMA_InitStructure.DMA_PeripheralBurst = DMA_PeripheralBurst_Single;
-    DMA_Init(ADC_DMA_STREAM, &DMA_InitStructure);
+    DMA_Init(DMA2_Stream0, &DMA_InitStructure);
 
-    DMA_ITConfig(ADC_DMA_STREAM, DMA_IT_HT | DMA_IT_TC, ENABLE);
-    DMA_ClearITPendingBit(ADC_DMA_STREAM, ADC_DMA_FLAGS);
+    DMA_ITConfig(DMA2_Stream0, DMA_IT_HT | DMA_IT_TC, ENABLE);
+    DMA_ClearITPendingBit(DMA2_Stream0, DMA_IT_TEIF0 | DMA_IT_DMEIF0 | DMA_IT_FEIF0 | DMA_IT_TCIF0 | DMA_IT_HTIF0);
 
-    DMA_Cmd(ADC_DMA_STREAM, ENABLE);
+    DMA_Cmd(DMA2_Stream0, ENABLE);
 
-    NVIC_InitStructure.NVIC_IRQChannel = ADC_DMA_IRQ;
+    // Enable the DMA2_Stream0 global Interrupt
+    NVIC_InitStructure.NVIC_IRQChannel = DMA2_Stream0_IRQn;
     NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0;
     NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
     NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
@@ -525,24 +535,42 @@ void adcInit(void) {
     adcData.temp1 = adcIDGVoltsToTemp(adcData.voltages[ADC_VOLTS_TEMP1]);
     adcData.temp2 = adcIDGVoltsToTemp(adcData.voltages[ADC_VOLTS_TEMP2]);
     adcData.temp3 = adcT1VoltsToTemp(adcData.voltages[ADC_VOLTS_TEMP3]);
-    analogData.vIn = adcVsenseToVin(adcData.voltages[ADC_VOLTS_VIN]);
+    adcData.vIn = adcVsenseToVin(adcData.voltages[ADC_VOLTS_VIN]);
 
     adcCalibOffsets();
+
+    // determine LiPo battery cell count
+    if (adcData.vIn < 8.5) {
+	adcData.batCellCount = 2.0f;
+	AQ_NOTICE("Battery cells: 2\n");
+    }
+    else if (adcData.vIn < 12.8f) {
+	adcData.batCellCount = 3.0f;
+	AQ_NOTICE("Battery cells: 3\n");
+    }
+    else if (adcData.vIn < 17.0f) {
+	adcData.batCellCount = 4.0f;
+	AQ_NOTICE("Battery cells: 4\n");
+    }
+    else if (adcData.vIn < 21.3f) {
+	adcData.batCellCount = 5.0f;
+	AQ_NOTICE("Battery cells: 5\n");
+    }
 }
 
 #pragma GCC optimize ("-O1")
 // every ~15.25us
-void ADC_DMA_HANDLER(void) {
-    register uint32_t flag = ADC_DMA_ISR;
+void DMA2_Stream0_IRQHandler(void) {
+    register uint32_t flag = DMA2->LISR;
     register unsigned long *s, *a;
     register uint16_t *w;
     int i;
 
     // clear intr flags
-    ADC_DMA_CR = (uint32_t)ADC_DMA_FLAGS;
+    DMA2->LIFCR = (uint32_t)(DMA_IT_TEIF0 | DMA_IT_DMEIF0 | DMA_IT_FEIF0 | DMA_IT_TCIF0 | DMA_IT_HTIF0);
 
     // second half?
-    w = ((flag & ADC_DMA_TC_FLAG) == RESET) ? adcDMAData.adc123Raw1 : adcDMAData.adc123Raw2;
+    w = ((flag & DMA_IT_TCIF0) == RESET) ? adcDMAData.adc123Raw1 : adcDMAData.adc123Raw2;
 
     // accumulate totals
     s = adcData.interrupt123Sums;
@@ -590,4 +618,3 @@ void ADC_DMA_HANDLER(void) {
 	CoExitISR();
     }
 }
-#endif	// HAS_AIMU

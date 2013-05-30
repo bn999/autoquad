@@ -26,7 +26,7 @@ loggerFields_t *loggerFields;
 int loggerNumFields;
 int loggerPacketSize;
 
-void loggerChecksumError(const char *s) {
+void loggerChecksumError(char *s) {
 	fprintf(stderr, "logger: checksum error in '%s' packet\n", s);
 }
 
@@ -130,7 +130,7 @@ void loggerDecodePacket(char *buf, loggerRecord_t *r) {
 				r->magAux[2] = *(float *)buf;
 				break;
 			case LOG_GPS_ITOW:
-				r->gpsItow = *(unsigned int *)buf;
+				r->temp[3] = *(float *)buf;
 				break;
 			case LOG_GPS_POS_UPDATE:
 				r->gpsPosUpdate = *(unsigned int *)buf;
@@ -148,7 +148,7 @@ void loggerDecodePacket(char *buf, loggerRecord_t *r) {
 				r->gpsPosAcc = *(float *)buf;
 				break;
 			case LOG_GPS_VACC:
-				r->gpsVAcc = *(float *)buf;
+				r->extra[1] = *(float *)buf;
 				break;
 			case LOG_GPS_VEL_UPDATE:
 				r->gpsVelUpdate = *(unsigned int *)buf;
@@ -174,11 +174,17 @@ void loggerDecodePacket(char *buf, loggerRecord_t *r) {
 			case LOG_ADC_TEMP0:
 				r->temp[0] = *(float *)buf;
 				break;
+			case LOG_ADC_TEMP1:
+				r->temp[1] = *(float *)buf;
+				break;
+			case LOG_ADC_TEMP2:
+				r->temp[2] = *(float *)buf;
+				break;
 			case LOG_ADC_VIN:
 				r->vIn = *(float *)buf;
 				break;
 			case LOG_ADC_MAG_SIGN:
-				r->magSign = (float)*(char *)buf;
+				r->extra[0] = (float)*(char *)buf;
 				break;
 			case LOG_UKF_Q1:
 				r->quat[0] = *(float *)buf;
@@ -199,13 +205,13 @@ void loggerDecodePacket(char *buf, loggerRecord_t *r) {
 				r->pos[1] = *(float *)buf;
 				break;
 			case LOG_UKF_POSD:
-				r->pos[2] = *(float *)buf;
+				r->extra[2] = *(float *)buf;
 				break;
 			case LOG_UKF_PRES_ALT:
-				r->pressAlt = *(float *)buf;
+				r->extra[3] = *(float *)buf;
 				break;
 			case LOG_UKF_ALT:
-				r->ukfAlt = *(float *)buf;
+				r->pos[2] = *(float *)buf;
 				break;
 			case LOG_UKF_VELN:
 				r->vel[0] = *(float *)buf;
@@ -270,6 +276,7 @@ void loggerDecodePacket(char *buf, loggerRecord_t *r) {
 			case LOG_MOT_YAW:
 				r->accAux[2] = *(float *)buf;
 				break;
+/*
 			case LOG_RADIO_QUALITY:
 				r->radioQuality = *(float *)buf;
 				break;
@@ -327,9 +334,7 @@ void loggerDecodePacket(char *buf, loggerRecord_t *r) {
 			case LOG_RADIO_CHANNEL17:
 				r->radioChannels[17] = *(short int *)buf;
 				break;
-			case LOG_RADIO_ERRORS:
-				r->radioErrors = *(unsigned int *)buf;
-				break;
+*/
 		}
 
 		switch (loggerFields[i].fieldType) {
@@ -452,7 +457,6 @@ int loggerReadEntryL(FILE *fp, loggerRecord_t *r) {
 			return 0;
 		}
 	}
-	return 0;
 }
 
 int loggerReadEntry(FILE *fp, loggerRecord_t *r) {

@@ -13,7 +13,7 @@
     You should have received a copy of the GNU General Public License
     along with AutoQuad.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright © 2011, 2012, 2013  Bill Nesbitt
+    Copyright © 2011, 2012  Bill Nesbitt
 */
 
 #ifndef _aq_mavlink_h
@@ -26,15 +26,27 @@
 #include "config.h"
 #include "../mavlink_types.h"
 
-#define MAVLINK_HEARTBEAT_INTERVAL	    1e6f		    //  1Hz
-#define MAVLINK_PARAM_INTERVAL		    (1e6f / 150.0f)	    // 150Hz
-#define MAVLINK_WP_TIMEOUT		    1e6f		    // 1 second
-#define MAVLINK_NOTICE_DEPTH		    25
+#define MAVLINK_STACK_SIZE		    280
+#define MAVLINK_PRIORITY		    40
+
+#define MAVLINK_HEARTBEAT_INTERVAL	    1e6	    //  1Hz
+#define MAVLINK_PARAM_INTERVAL		    2e4	    // 50Hz
+#define MAVLINK_WP_TIMEOUT		    1e6	    // 1 second
+#define MAVLINK_LED_PORT		    GPIOD
+#define MAVLINK_LED_PIN			    GPIO_Pin_11
+#define MAVLINK_USART			    USART1
+#define MAVLINK_NOTICE_DEPTH		    20
 #define MAVLINK_PARAMID_LEN		    16
 #define MAVLINK_USE_CONVENIENCE_FUNCTIONS
-#define MAVLINK_SEND_UART_BYTES		    mavlinkSendPacket
 
 typedef struct {
+    OS_TID sendTask;
+    OS_TID recvTask;
+    OS_MutexID serialPortMutex;
+    OS_EventID notices;
+    void *noticeQueue[MAVLINK_NOTICE_DEPTH];
+
+    serialPort_t *serialPort;
     unsigned long nextHeartbeat;
     unsigned long nextParam;
     unsigned int currentParam;
@@ -71,12 +83,11 @@ extern mavlinkStruct_t mavlinkData;
 extern mavlink_system_t mavlink_system;
 
 extern void mavlinkInit(void);
-extern void mavlinkSendNotice(const char *s);
+extern void mavlinkNotice(const char *s);
 extern void mavlinkWpReached(uint16_t seqId);
 extern void mavlinkWpAnnounceCurrent(uint16_t seqId);
 extern void comm_send_ch(mavlink_channel_t chan, uint8_t ch);
 extern void mavlinkDo(void);
-extern void mavlinkSendPacket(mavlink_channel_t chan, const uint8_t *buf, uint16_t len);
 
 #endif
 #endif	// USE_MAVLINK

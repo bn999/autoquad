@@ -13,7 +13,7 @@
     You should have received a copy of the GNU General Public License
     along with AutoQuad.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright © 2011, 2012, 2013  Bill Nesbitt
+    Copyright © 2011, 2012  Bill Nesbitt
 */
 
 #include "aq.h"
@@ -23,10 +23,11 @@
 #include "filer.h"
 #include "config.h"
 #include "serial.h"
-#include "comm.h"
 #ifdef MAVLINK
     #include "mavlink.h"
 #else
+    #include "downlink.h"
+    #include "notice.h"
     #include "telemetry.h"
     #include "command.h"
 #endif
@@ -45,46 +46,37 @@
 #include "gimbal.h"
 #include "sdio.h"
 #include "can.h"
-#include "analog.h"
-#ifdef USE_SIGNALING
-   #include "signaling.h"
-#endif
 #include <CoOS.h>
-
-digitalPin *tp;
 
 OS_STK *aqInitStack;
 
 void aqInit(void *pdata) {
-#ifdef DAC_TP_PORT
-    tp = digitalInit(DAC_TP_PORT, DAC_TP_PIN);
-#endif
     rtcInit();	    // have to do this first as it requires our microsecond timer to calibrate
     timerInit();    // now setup the microsecond timer before everything else
     sdioLowLevelInit();
     filerInit();
     supervisorInit();
     configInit();
-    commInit();
 #ifdef USE_MAVLINK
     mavlinkInit();
-#endif
+#else
+    downlinkInit();
+    noticeInit();
     telemetryInit();
+#endif
     motorsInit();
     gimbalInit();
     imuInit();
-    analogInit();
     navUkfInit();
     radioInit();
     controlInit();
     gpsInit();
     navInit();
+#ifndef USE_MAVLINK
     commandInit();
+#endif
 #ifdef USE_CAN
     canInit();
-#endif
-#ifdef USE_SIGNALING
-    signalingInit();
 #endif
     loggerInit();
     runInit();
@@ -95,12 +87,15 @@ void aqInit(void *pdata) {
 
     AQ_NOTICE("Initialization complete, READY.\n");
 
-    // startup complete, reduce comm task priority
-    if (commData.commTask)
-	CoSetPriority(commData.commTask, COMM_PRIORITY);
+#ifndef USE_MAVLINK
+    // startup complete, reduce notice task priority
+    CoSetPriority(noticeData.noticeTask, NOTICE_PRIORITY);
+#endif
 
-    // start telemetry
+// start telemetry
+#ifndef USE_MAVLINK
     telemetryEnable();
+#endif
 
     // reset idle loop calibration now that everything is running
     minCycles = 999999999;

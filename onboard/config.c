@@ -13,17 +13,17 @@
     You should have received a copy of the GNU General Public License
     along with AutoQuad.  If not, see <http://www.gnu.org/licenses/>.
 
-    Copyright © 2011, 2012, 2013  Bill Nesbitt
+    Copyright © 2011, 2012  Bill Nesbitt
 */
 
 #include "aq.h"
 #include "config.h"
 #include "flash.h"
 #include "filer.h"
-#include "comm.h"
+#include "notice.h"
 #include "supervisor.h"
 #include "util.h"
-//#include CONFIG_HEADER
+#include CONFIG_HEADER
 #include <string.h>
 #include <stdio.h>
 #include <math.h>
@@ -90,6 +90,8 @@ const char *configParameterStrings[] = {
     "CTRL_YAW_ANG_IM",
     "CTRL_YAW_ANG_DM",
     "CTRL_YAW_ANG_OM",
+    "GPS_BAUD_RATE",
+    "GPS_RATE",
     "MOT_FRAME",
     "MOT_START",
     "MOT_MIN",
@@ -154,14 +156,7 @@ const char *configParameterStrings[] = {
     "MOT_PWRD_14_P",
     "MOT_PWRD_14_R",
     "MOT_PWRD_14_Y",
-    "COMM_BAUD1",
-    "COMM_BAUD2",
-    "COMM_BAUD3",
-    "COMM_BAUD4",
-    "COMM_STREAM_TYP1",
-    "COMM_STREAM_TYP2",
-    "COMM_STREAM_TYP3",
-    "COMM_STREAM_TYP4",
+    "DOWNLINK_BAUD",
     "TELEMETRY_RATE",
     "NAV_MAX_SPEED",
     "NAV_MAX_DECENT",
@@ -398,10 +393,7 @@ const char *configParameterStrings[] = {
     "L1_ATT_MM_Y13",
     "L1_ATT_MM_R14",
     "L1_ATT_MM_P14",
-    "L1_ATT_MM_Y14",
-    "SIG_LED_1_PRT",
-    "SIG_LED_2_PRT",
-    "SIG_BEEP_PRT"
+    "L1_ATT_MM_Y14"
 };
 
 void configLoadDefault(void) {
@@ -464,6 +456,8 @@ void configLoadDefault(void) {
     p[CTRL_YAW_ANG_IM] = DEFAULT_CTRL_YAW_ANG_IM;
     p[CTRL_YAW_ANG_DM] = DEFAULT_CTRL_YAW_ANG_DM;
     p[CTRL_YAW_ANG_OM] = DEFAULT_CTRL_YAW_ANG_OM;
+    p[GPS_BAUD_RATE] = DEFAULT_GPS_BAUD_RATE;
+    p[GPS_RATE] = DEFAULT_GPS_RATE;
     p[MOT_FRAME] = DEFAULT_MOT_FRAME;
     p[MOT_START] = DEFAULT_MOT_START;
     p[MOT_MIN] = DEFAULT_MOT_MIN;
@@ -528,14 +522,7 @@ void configLoadDefault(void) {
     p[MOT_PWRD_14_P] = DEFAULT_MOT_PWRD_14_P;
     p[MOT_PWRD_14_R] = DEFAULT_MOT_PWRD_14_R;
     p[MOT_PWRD_14_Y] = DEFAULT_MOT_PWRD_14_Y;
-    p[COMM_BAUD1] = DEFAULT_COMM_BAUD1;
-    p[COMM_BAUD2] = DEFAULT_COMM_BAUD2;
-    p[COMM_BAUD3] = DEFAULT_COMM_BAUD3;
-    p[COMM_BAUD4] = DEFAULT_COMM_BAUD4;
-    p[COMM_STREAM_TYP1] = DEFAULT_COMM_STREAM_TYP1;
-    p[COMM_STREAM_TYP2] = DEFAULT_COMM_STREAM_TYP2;
-    p[COMM_STREAM_TYP3] = DEFAULT_COMM_STREAM_TYP3;
-    p[COMM_STREAM_TYP4] = DEFAULT_COMM_STREAM_TYP4;
+    p[DOWNLINK_BAUD] = DEFAULT_DOWNLINK_BAUD;
     p[TELEMETRY_RATE] = DEFAULT_TELEMETRY_RATE;
     p[NAV_MAX_SPEED] = DEFAULT_NAV_MAX_SPEED;
     p[NAV_MAX_DECENT] = DEFAULT_NAV_MAX_DECENT;
@@ -773,9 +760,6 @@ void configLoadDefault(void) {
     p[L1_ATT_MM_R14] = DEFAULT_L1_ATT_MM_R14;
     p[L1_ATT_MM_P14] = DEFAULT_L1_ATT_MM_P14;
     p[L1_ATT_MM_Y14] = DEFAULT_L1_ATT_MM_Y14;
-    p[SIG_LED_1_PRT]= DEFAULT_SIG_LED_1_PRT;
-    p[SIG_LED_2_PRT]= DEFAULT_SIG_LED_2_PRT;
-    p[SIG_BEEP_PRT]= DEFAULT_SIG_BEEP_PRT;
 }
 
 void configFlashRead(void) {
@@ -835,51 +819,17 @@ unsigned int configParameterWrite(void *data) {
     return configParameterRead(data);
 }
 
-int configParseParams(char *fileBuf, int size, int p1) {
-    static char lineBuf[CONFIG_LINE_BUF_SIZE];
-    char param[17];
-    float value;
-    char c;
-    int p2;
-    int n;
-    int i, j;
-
-    p2 = 0;
-    for (i = 0; i < size; i++) {
-	c = fileBuf[p2++];
-	if (c == '\n' || p1 == (CONFIG_LINE_BUF_SIZE-1)) {
-	    lineBuf[p1] = 0;
-
-	    n = sscanf(lineBuf, "#define DEFAULT_%17s %f", param, &value);
-	    if (n != 2) {
-		n = sscanf(lineBuf, "%17s %f", param, &value);
-		if (n != 2) {
-		    n = sscanf(lineBuf, "#define %17s %f", param, &value);
-		}
-	    }
-
-	    if (n == 2) {
-		for (j = 0; j < CONFIG_NUM_PARAMS; j++) {
-		    if (!strncasecmp(param, configParameterStrings[j], sizeof(param)))
-			p[j] = value;
-		}
-	    }
-	    p1 = 0;
-	}
-	else {
-	    lineBuf[p1++] = c;
-	}
-    }
-
-    return p1;
-}
-
 // read config from uSD
 int8_t configReadFile(char *fname) {
+    char *lineBuf;
     char *fileBuf;
+    char param[16];
+    float value;
     int8_t fh;
     int ret;
-    int p1;
+    char c;
+    int i, j, p1, p2;
+    int n;
 
     if (fname == 0)
 	fname = CONFIG_FILE_NAME;
@@ -890,21 +840,49 @@ int8_t configReadFile(char *fname) {
     }
 
     fileBuf = (char *)aqCalloc(CONFIG_FILE_BUF_SIZE, sizeof(char));
+    lineBuf = (char *)aqCalloc(CONFIG_LINE_BUF_SIZE, sizeof(char));
 
     p1 = 0;
-    while ((ret = filerRead(fh, fileBuf, -1, CONFIG_FILE_BUF_SIZE)) > 0)
-	p1 = configParseParams((char *)fileBuf, ret, p1);
+    do {
+	ret = filerRead(fh, fileBuf, -1, CONFIG_FILE_BUF_SIZE);
+
+	p2 = 0;
+	for (i = 0; i < ret; i++) {
+	    c = fileBuf[p2++];
+	    if (c == '\n' || p1 == (CONFIG_LINE_BUF_SIZE-1)) {
+		lineBuf[p1] = 0;
+
+		n = sscanf(lineBuf, "#define DEFAULT_%15s %f", param, &value);
+		if (n != 2) {
+		    n = sscanf(lineBuf, "%15s %f", param, &value);
+		    if (n != 2) {
+			n = sscanf(lineBuf, "#define %15s %f", param, &value);
+		    }
+		}
+
+		if (n == 2) {
+		    for (j = 0; j < CONFIG_NUM_PARAMS; j++) {
+			if (!strncasecmp(param, configParameterStrings[j], sizeof(param)))
+			    p[j] = value;
+		    }
+		}
+		p1 = 0;
+	    }
+	    else {
+		lineBuf[p1++] = c;
+	    }
+	}
+
+    } while (ret > 0);
 
     filerClose(fh);
 
+    if (lineBuf)
+	aqFree(lineBuf, CONFIG_LINE_BUF_SIZE, sizeof(char));
     if (fileBuf)
 	aqFree(fileBuf, CONFIG_FILE_BUF_SIZE, sizeof(char));
 
     return ret;
-}
-
-int8_t configFormatParam(char *buf, int n) {
-    return sprintf(buf, "%-17s\t\t%+.10e\n", configParameterStrings[n], p[n]);
 }
 
 // write config to uSD
@@ -924,7 +902,7 @@ int8_t configWriteFile(char *fname) {
     }
 
     for (i = 0; i < CONFIG_NUM_PARAMS; i++) {
-	n = configFormatParam(buf, i);
+	n = sprintf(buf, "%-15s\t\t%+.10e\n", configParameterStrings[i], p[i]);
 	ret = filerWrite(fh, buf, -1, n);
 
 	if (ret < n) {

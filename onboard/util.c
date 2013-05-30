@@ -21,7 +21,7 @@
 #include "aq_timer.h"
 #include "flash.h"
 #include "rcc.h"
-#include "comm.h"
+#include "notice.h"
 #include "aq_mavlink.h"
 #include "aq_timer.h"
 #include "getbuildnum.h"
@@ -57,35 +57,19 @@ void utilStackCheck(void) {
 	}
     }
 }
-
-uint16_t utilGetStackFree(const char *stackName) {
-    uint16_t stkFree = 0, i;
-
-    for (i=0; i < numStacks; i++) {
-	if ( !strncmp(stackName, stackNames[i], 20) ) {
-	    stkFree = stackFrees[i];
-	    break;
-	}
-    }
-
-    return stkFree;
-}
-
 #endif
 
 void *aqCalloc(size_t count, size_t size) {
-    char *addr = 0;
+    char *addr;
 
-    if (count * size) {
-	addr = calloc(count, size);
+    addr = calloc(count, size);
 
-	heapUsed += count * size;
-	if (heapUsed > heapHighWater)
-	    heapHighWater = heapUsed;
+    heapUsed += count * size;
+    if (heapUsed > heapHighWater)
+	heapHighWater = heapUsed;
 
-	if (addr == 0)
-	    AQ_NOTICE("Out of heap memory!\n");
-    }
+    if (addr == 0)
+	AQ_NOTICE("Out of heap memory!\n");
 
     return addr;
 }
@@ -166,22 +150,20 @@ float constrainFloat(float i, float lo, float hi) {
 }
 
 void utilVersionString(char *s) {
-    sprintf(s, "AQ FW ver: %s rev%d b%d, HW ver: %d rev%d\n", FIMRWARE_VERSION, getRevisionNumber(), getBuildNumber(), BOARD_VERSION, BOARD_REVISION);
+    sprintf(s, "AutoQuad ver: %s r%d b%d hwrev%d\n", VERSION, getRevisionNumber(), getBuildNumber(), HARDWARE_REVISION);
 }
 
 void info(void) {
     static char s[96];
 
-    yield(100);
+	yield(100);
     sprintf(s, "AQ S/N: %08X-%08X-%08X\n", flashSerno(2), flashSerno(1), flashSerno(0));
     AQ_NOTICE(s);
     yield(100);
 
-#ifdef USE_MAVLINK
     sprintf(s, "Mavlink SYS ID: %d\n", flashSerno(0) % 250);
     AQ_NOTICE(s);
     yield(100);
-#endif
 
     sprintf(s, "SYS Clock: %u MHz\n", rccClocks.SYSCLK_Frequency / 1000000);
     AQ_NOTICE(s);

@@ -20,7 +20,7 @@
 #include "telemetry.h"
 #include "pid.h"
 #include "util.h"
-#include "comm.h"
+#include "notice.h"
 #include "motors.h"
 #include "control.h"
 #include "config.h"

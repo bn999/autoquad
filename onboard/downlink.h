@@ -16,27 +16,33 @@
     Copyright © 2011, 2012  Bill Nesbitt
 */
 
-#ifndef _pwm_h
-#define _pwm_h
+#ifndef _downlink_h
+#define _downlink_h
 
-enum pwmDirections {
-    PWM_OUTPUT = 1,
-    PWM_INPUT
-};
+#include "aq.h"
+#include "serial.h"
+#include "digital.h"
+#include <CoOS.h>
 
-typedef void pwmCallback_t(uint32_t, uint8_t);
+#define DOWNLINK_USART		USART1
+#define DOWNLINK_RX_BUF_SIZE	256
+#define DOWNLINK_TX_BUF_SIZE	1024
 
 typedef struct {
-    volatile uint32_t *ccr;
-    volatile uint32_t *cnt;
-    pwmCallback_t *callback;
-    uint32_t period;
-    int8_t direction;
-} pwmPortStruct_t;
+    serialPort_t *serialPort;
+    OS_MutexID serialPortMutex;
+} downlinkStruct_t;
 
-extern pwmPortStruct_t *pwmInitOut(uint8_t pwmPort, uint32_t period, uint32_t inititalValue, int8_t ESC32Mode);
-extern pwmPortStruct_t *pwmInitIn(uint8_t pwmPort, uint16_t polarity, uint32_t period, pwmCallback_t callback);
-extern uint16_t pwmCheckTimer(uint8_t pwmPort);
-extern void pwmZeroTimers(void);
+extern downlinkStruct_t downlinkData;
+
+extern void downlinkInit(void);
+extern void downlinkSendChar(unsigned char c);
+extern void downlinkSendInt(unsigned int i);
+extern void downlinkSendFloat(float f);
+extern void downlinkSendString(const char *s);
+extern void downlinkResetChecksum(void);
+extern void downlinkSendChecksum(void);
+extern unsigned char downlinkReadChar(void);
+extern void downlinkGetLong(unsigned long *v);
 
 #endif

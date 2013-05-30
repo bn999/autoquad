@@ -21,10 +21,10 @@
 #include "radio.h"
 #include "util.h"
 #include "config.h"
-#include "comm.h"
+#include "notice.h"
 #include "aq_timer.h"
 #include "rcc.h"
-#include "analog.h"
+#include "adc.h"
 #include "aq_mavlink.h"
 #include <math.h>
 #include <string.h>
@@ -35,23 +35,21 @@ motorsStruct_t motorsData __attribute__((section(".ccm")));
 void motorsSendValues(void) {
     int i;
 
-    for (i = 0; i < PWM_NUM_PORTS; i++)
+    for (i = 0; i < MOTORS_NUM; i++)
 	if (motorsData.active[i]) {
 	    // ensure motor output is constrained
 	    motorsData.value[i] = constrainInt(motorsData.value[i], p[MOT_START], p[MOT_MAX]);
-	    if (motorsData.pwm[i])
-		*motorsData.pwm[i]->ccr = motorsData.value[i];
+	    *motorsData.pwm[i]->ccr = motorsData.value[i];
 	}
 }
 
 void motorsOff(void) {
     int i;
 
-    for (i = 0; i < PWM_NUM_PORTS; i++)
+    for (i = 0; i < MOTORS_NUM; i++)
 	if (motorsData.active[i]) {
 	    motorsData.value[i] = p[MOT_MIN];
-	    if (motorsData.pwm[i])
-		*motorsData.pwm[i]->ccr = motorsData.value[i];
+	    *motorsData.pwm[i]->ccr = motorsData.value[i];
     }
 
     motorsData.throttle = 0;
@@ -76,11 +74,11 @@ void motorsCommands(float throtCommand, float pitchCommand, float rollCommand, f
     ruddCommand += (ruddCommand * expFactor);
 
     // calculate voltage factor
-    nominalBatVolts = MOTORS_CELL_VOLTS*analogData.batCellCount;
-    voltageFactor = 1.0f + (nominalBatVolts - analogData.vIn) / nominalBatVolts;
+    nominalBatVolts = MOTORS_CELL_VOLTS*adcData.batCellCount;
+    voltageFactor = 1.0f + (nominalBatVolts - adcData.vIn) / nominalBatVolts;
 
     // calculate and set each motor value
-    for (i = 0; i < PWM_NUM_PORTS; i++) {
+    for (i = 0; i < MOTORS_NUM; i++) {
 	if (motorsData.active[i]) {
 	    motorsPowerStruct_t *d = &motorsData.distribution[i];
 
@@ -128,7 +126,7 @@ void motorsInit(void) {
     sumRoll = 0.0f;
     sumYaw = 0.0f;
 
-    for (i = 0; i < PWM_NUM_PORTS; i++) {
+    for (i = 0; i < MOTORS_NUM; i++) {
 	motorsPowerStruct_t *d = &motorsData.distribution[i];
 
 	if (d->throttle != 0.0 || d->pitch != 0.0 || d->roll != 0.0 || d->yaw != 0.0) {

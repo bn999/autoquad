@@ -126,6 +126,7 @@ enum {
 	LOG_RADIO_CHANNEL16,
 	LOG_RADIO_CHANNEL17,
 	LOG_RADIO_ERRORS,
+    LOG_GMBL_TRIGGER,
 	LOG_NUM_IDS
 };
 
@@ -200,6 +201,8 @@ typedef struct {
 	float radioQuality;
 	short int radioChannels[18];
 	unsigned int radioErrors;
+	unsigned int gimbalTrig;
+	
 	char ckA, ckB;
 } __attribute__((packed)) loggerRecord_t;
 

@@ -330,6 +330,9 @@ void loggerDecodePacket(char *buf, loggerRecord_t *r) {
 			case LOG_RADIO_ERRORS:
 				r->radioErrors = *(unsigned int *)buf;
 				break;
+			case LOG_GMBL_TRIGGER:
+				r->gimbalTrig = *(unsigned int *)buf;
+				break;
 		}
 
 		switch (loggerFields[i].fieldType) {

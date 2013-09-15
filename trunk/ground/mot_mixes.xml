@@ -123,24 +123,24 @@
 		<geometry>
 			<motor rotation="+1" port="1">0,1</motor> 
 			<motor rotation="-1" port="2">0,1</motor> 
-			<motor rotation="+1" port="3">1,0</motor> 
-			<motor rotation="-1" port="4">1,0</motor> 
+			<motor rotation="-1" port="3">1,0</motor> 
+			<motor rotation="+1" port="4">1,0</motor> 
 			<motor rotation="+1" port="5">0,-1</motor> 
 			<motor rotation="-1" port="6">0,-1</motor> 
-			<motor rotation="+1" port="7">-1,0</motor> 
-			<motor rotation="-1" port="8">-1,0</motor> 
+			<motor rotation="-1" port="7">-1,0</motor> 
+			<motor rotation="+1" port="8">-1,0</motor> 
 		</geometry>
 	</craft>
 	<craft id="octo_coax_x" config="custom" motors="8" configId="33">
 		<geometry>
 			<motor rotation="+1" port="1">-1,1</motor> 
 			<motor rotation="-1" port="2">-1,1</motor> 
-			<motor rotation="+1" port="3">1,1</motor> 
-			<motor rotation="-1" port="4">1,1</motor> 
+			<motor rotation="-1" port="3">1,1</motor> 
+			<motor rotation="+1" port="4">1,1</motor> 
 			<motor rotation="+1" port="5">1,-1</motor> 
 			<motor rotation="-1" port="6">1,-1</motor> 
-			<motor rotation="+1" port="7">-1,-1</motor> 
-			<motor rotation="-1" port="8">-1,-1</motor> 
+			<motor rotation="-1" port="7">-1,-1</motor> 
+			<motor rotation="+1" port="8">-1,-1</motor> 
 		</geometry>
 	</craft>
 	<!-- "colinear octo" meaning 4 arms, two motors per arm, one set of motors is half-way between center of 'copter and the outer set of motors -->

@@ -14,31 +14,36 @@
 #
 #    Copyright © 2011, 2012  Bill Nesbitt
 
-CC = g++
-CFLAGS = -g -O3
-LDFLAGS =
+# Include user-specific settings file, if any, in regular Makefile format.
+# This file can set any default variable values you wish to override (all defaults are listed below).
+# The .user file is not included with the source code distribution, so it will not be overwritten.
+-include Makefile.user
 
-ALL_CFLAGS = $(CFLAGS)
+CC ?= g++
+CFLAGS ?= -g -O3
+#LDFLAGS ?=
 
 # BUILD_PATH = .
-BUILD_PATH = ../build
+BUILD_PATH ?= ../build
 
 # Linux/OS X
-#LIBPATH = /opt/local/lib
-#INCPATH = /opt/local/include
-#MAVLINK = ../mavlink/include/common
-#EXPAT_LIB = expat
-#PLPLOT_LIB = plplotd
-#EIGEN = /usr/local/include/eigen3
+#LIBPATH ?= /opt/local/lib
+#INCPATH ?= /opt/local/include
+#MAVLINK ?= ../mavlink/include/autoquad
+#EXPAT_LIB ?= expat
+#PLPLOT_LIB ?= plplotd
+#EIGEN ?= /usr/local/include/eigen3
 
 # Windows
-LIBPATH = ../../../lib
-INCPATH = .
-MAVLINK = $(LIBPATH)/mavlink/include/common
-EXPAT = $(LIBPATH)/expat
-EXPAT_LIB = libexpat
-EIGEN = $(LIBPATH)/eigen
+LIBPATH ?= ../../../lib
+INCPATH ?= .
+MAVLINK ?= $(LIBPATH)/mavlink/include/autoquad
+EXPAT ?= $(LIBPATH)/expat
+EXPAT_LIB ?= libexpat
+EIGEN ?= $(LIBPATH)/eigen
 
+
+ALL_CFLAGS = $(CFLAGS)
 
 # Targets
 

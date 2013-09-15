@@ -13,7 +13,6 @@ extern "C" {
 #endif
 
 #include "logger.h"
-//#include "../mavlink_types.h"
 #include <stdint.h>
 #include <time.h>
 
@@ -31,32 +30,33 @@ extern "C" {
 #define RAD_TO_DEG (180.0f / M_PI)
 #define DEG_TO_RAD (M_PI / 180.0f)
 
-#define GPS_TRACK_MAX_TM_GAP	3000 // milliseconds w/out GPS position after which to start new track segment
-#define TRIG_ZERO_BUFFER	100 // pulse width ms +/- buffer for zero (center) position
+#define GPS_TRACK_MAX_TM_GAP	3000	// milliseconds w/out GPS position after which to start new track segment
+#define TRIG_ZERO_BUFFER		100		// pulse width ms +/- buffer for zero (center) position
 
 // defaults
-static int outputFreq = 200; // output frequency in Hz (log is written at 200Hz)
-static int gpsTrackFreq = 5; // default export output frequency when used with --gps-track option
-static float gpsTrackMinHAcc = 2; // gps track dump: minimum GPS_HACC (est. horizontal accuracy) in meters
-static float gpsTrackMinVAcc = 2; // gps track dump: minimum GPS_VACC (est. vertical accuracy) in meters
-static bool gpsTrackAsWpts = 0; // export gps track as waypoints (GPX/KML only)
-static bool gpsTrackInclWpts = 0; // export gps track AND waypoints (GPX/KML only)
-static bool gpsTrackUsePresAlt = 0; // use pressure sensor alt. instead of GPS alt, after adjusting by given offset
-static bool gpsTrackUseUkfAlt = 0;  // use UKF derived altitude instead of raw GPS altitude
-static float gpsTrackAltOffset = 0; // offset in meters between reported pressure alt. and MSL
-static int camTrigChannel = 0; // trigger radio channel (zero for none)
-static int camTrigValue = 250; // trigger channel value above/below which means camera was triggered
+static int outputFreq = 200;				// output frequency in Hz (log is written at 200Hz)
+static int gpsTrackFreq = 5;				// default export output frequency when used with --gps-track option
+static float gpsTrackMinHAcc = 2;			// gps track dump: minimum GPS_HACC (est. horizontal accuracy) in meters
+static float gpsTrackMinVAcc = 2;			// gps track dump: minimum GPS_VACC (est. vertical accuracy) in meters
+static bool gpsTrackAsWpts = 0;				// export gps track as waypoints (GPX/KML only)
+static bool gpsTrackInclWpts = 0;			// export gps track AND waypoints (GPX/KML only)
+static bool gpsTrackUsePresAlt = 0;			// use pressure sensor alt. instead of GPS alt, after adjusting by given offset
+static bool gpsTrackUseUkfAlt = 0;			// use UKF derived altitude instead of raw GPS altitude
+static float gpsTrackAltOffset = 0;			// offset in meters between reported pressure alt. and MSL
+static int camTrigChannel = 0;				// trigger radio channel (zero for none)
+static int camTrigValue = 250;				// trigger channel value above/below which means camera was triggered
+static unsigned camTrigDelay = 0;			// delay micros between trigger activation and camera shutter opening
 static int homeSetChannel = 7;
 static int posHoldChannel = 6;
-static char valueSep = ' '; // export value delimiter (space, comma, tab, etc)
+static char valueSep = ' ';					// export value delimiter (space, comma, tab, etc)
 
 // GPX/KML export settings
 static const char trigWptName[30] = "trig"; // what to name waypoints made from triggered track points
 static const char trackColor[] = "ff007fef"; // KML track color
-static const int trackWidth = 3; // KML track width
+static const int trackWidth = 3;			// KML track width
 static const char trackAltMode[] = "absolute"; // KML track altitude mode (clampToGround, relativeToGround, or absolute)
-static const int trackExtrude = 0; // KML extrude track (0 or 1)
-static const int trackTesselate = 0; // KML tesselate (break up in to smaller pieces) track (0 or 1); should = 1 if trackExtrude=1
+static const int trackExtrude = 0;			// KML extrude track (0 or 1)
+static const int trackTesselate = 0;		// KML tesselate (break up in to smaller pieces) track (0 or 1); should = 1 if trackExtrude=1
 static const char trackModelURL[] = "http://max.wdg.us/AQ/AQ.dae"; // KML COLLADA model file for tracklog
 static const char waypointColor[] = "99fe6500"; // KML waypoint label color
 static const char waypointTrigColor[] = "990000ca"; // KML triggered waypoint label color
@@ -64,6 +64,7 @@ static const char waypointIconURL[] = "http://maps.google.com/mapfiles/kml/shape
 static const char waypointAltMode[] = "absolute"; // KML waypoint altitude mode (clampToGround, relativeToGround, or absolute)
 
 enum fields {
+	// logged:
 	MICROS = 0,
 	VOLTAGE1,
 	VOLTAGE2,
@@ -92,9 +93,6 @@ enum fields {
 	PRESSURE1,
 	PRESSURE2,
 	TEMP1,
-	TEMP2,
-	TEMP3,
-	TEMP4,
 	AUX_RATEX,
 	AUX_RATEY,
 	AUX_RATEZ,
@@ -117,6 +115,12 @@ enum fields {
 	GPS_VELE,
 	GPS_VELD,
 	GPS_VEL_ACC,
+    GPS_PDOP,
+    GPS_HDOP,
+    GPS_VDOP,
+    GPS_TDOP,
+    GPS_NDOP,
+    GPS_EDOP,
 	GPS_ITOW,
 	POSN,
 	POSE,
@@ -145,10 +149,9 @@ enum fields {
 	MOTOR13,
 	MOTOR14,
 	THROTTLE,
-//	EXTRA1,
-//	EXTRA2,
-//	EXTRA3,
-//	EXTRA4,
+    MOT_PITCH,
+    MOT_ROLL,
+    MOT_YAW,
 	RADIO_CHANNEL1,
 	RADIO_CHANNEL2,
 	RADIO_CHANNEL3,
@@ -169,6 +172,11 @@ enum fields {
 	RADIO_CHANNEL18,
 	RADIO_QUALITY,
 	RADIO_ERRORS,
+	GMBL_TRIGGER,
+	ACC_BIAS_X,
+	ACC_BIAS_Y,
+	ACC_BIAS_Z,
+	// calculated:
 	GPS_H_SPEED,
 	GPS_UTC_TIME,
 	CAM_TRIGGER,
@@ -188,23 +196,26 @@ typedef struct {
 	char time[31], name[30], wptstyle[20];
 } expFields_t;
 
+static bool dumpPlot;
+static bool dumpGpsTrack;
+static bool utcToLocal;
+static bool outputRealDate;
+static bool includeHeaders;
+static bool dumpTrigger;
+static bool dumpTriggeredOnly;
+static bool exportGPX;
+static bool exportKML;
+static bool exportMAV;
 static int dumpOrder[NUM_FIELDS];
 static int dumpNum;
-static int dumpPlot;
-static int dumpGpsTrack;
 static int cntExpSamples;
-static int utcToLocal;
 static int usrSpecOutFreq;
-static int outputRealDate;
-static int includeHeaders;
-static int dumpTriggeredOnly;
-static int exportGPX;
-static int exportKML;
-static int exportMAV;
 static int gpxWptCnt;
 static int gpxTrkCnt;
-static int gpxTrigCnt;
-static int gpxTrigStat;
+static unsigned camTrigActivatedTime;
+static unsigned camTrigLastActive;
+static unsigned camTrigCnt;
+static bool camTrigRecordExported;
 static float dumpMin[NUM_FIELDS];
 static float dumpMax[NUM_FIELDS];
 static float scaleMin, scaleMax;

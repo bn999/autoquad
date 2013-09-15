@@ -172,80 +172,43 @@ typedef struct {
 typedef struct {
 	unsigned int lastUpdate;
 	float voltages[15];
-	float rate[3];
-	float acc[3];
-	float mag[3];
-	float pressure[2];
-	float temp[4];
-	float vIn;
-	float quat[4];
-	float rateAux[3];
-	float accAux[3];
-	float magAux[3];
-	float magSign;
-	float ukfAlt;
-	float pressAlt;
+	float rate[3];			// IMU_RATEX, Y, Z
+	float acc[3];			// IMU_ACCX, Y, Z
+	float mag[3];			// IMU_MAGX, Y, Z
+	float magSign;			// ADC_MAG_SIGN
+	float pressure[2];		// ADC_PRESSURE1, 2
+	float temp[1];			// ADC_TEMP0
+	float vIn;				// ADC_VIN
+	float quat[4];			// UKF_Q1, 2, 3, 4
+	float ukfAlt;			// UKF_ALT
+	float pressAlt;			// UKF_PRES_ALT
+	float pos[3];			// UKF_POSN, E, D
+	float vel[3];			// UKF_VELN, E, D
+	float accBias[3];		// ACC_BIAS_X, Y, Z
 
 	unsigned int gpsPosUpdate;
-	double lat, lon;
-	float gpsAlt;
-	float gpsPosAcc;
 	unsigned int gpsVelUpdate;
-	float gpsVel[3];
-	float gpsVelAcc;
-	float gpsVAcc;
-	float gpsItow;
+	double lat, lon;		// GPS_LAT, LON
+	float gpsAlt;			// GPS_HEIGHT
+	float gpsPosAcc;		// GPS_HACC
+	float gpsVel[3];		// GPS_VELN, E, D
+	float gpsVelAcc;		// GPS_SACC
+	float gpsVAcc;			// GPS_VACC
+	float gpsItow;			// GPS_ITOW
+	float gpsDops[6]; 		// GPS_(P)DOP,H,V,T,N,E
 
-	float pos[3];
-	float vel[3];
-	short int motors[14];
-	short int throttle;
-//	float extra[4];
+	short int motors[14];	// MOT_MOTOR0 - 13
+	short int throttle;		// MOT_THROTTLE
+	float motPRY[3];		// MOT_PITCH, ROLL, YAW
+
 	float radioQuality;
 	short int radioChannels[18];
-	unsigned int radioErrors;
-	unsigned int gimbalTrig;
+	unsigned short radioErrors;
+
+	unsigned short gimbalTrig;
 	
 	char ckA, ckB;
 } __attribute__((packed)) loggerRecord_t;
-
-/*
-typedef struct {
-	unsigned int lastUpdate;
-	float voltages[15];
-	float rate[3];
-	float acc[3];
-	float mag[3];
-	float pDOP;
-	float hDOP;
-	float vDOP;
-	float tDOP;
-	float nDOP;
-	float eDOP;
-	float pressure[2];
-	float temp[4];
-	float vIn;
-	float quat[4];
-	float rateAux[3];
-	float accAux[3];
-	float magAux[3];
-	unsigned int gpsPosUpdate;
-	double lat, lon;
-	float gpsAlt;
-	float gpsPosAcc;
-	unsigned int gpsVelUpdate;
-	float gpsVel[3];
-	float gpsVelAcc;
-	float pos[3];
-	float vel[3];
-	short int motors[14];
-	short int throttle;
-	float extra[4];
-	float radioQuality;
-	short int radioChannels[18];
-	char ckA, ckB;
-} __attribute__((packed)) loggerRecord_t;
-*/
 
 extern int loggerReadEntry(FILE *fp, loggerRecord_t *r);
 extern int loggerReadLog(const char *fname, loggerRecord_t **l);

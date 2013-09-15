@@ -42,76 +42,113 @@ time_t towStartTime;
 FILE *outFP;
 
 void usage(void) {
-	char outTxt[8000] = "\nUsage: logDump [options] [values] logfile [ > outfile.ext ]\n\n\
-Options Summary (may use long or short versions):\n\n\
-	[--help | -h] [--exp-format=(csv|tab|gpx|kml) | -e typ]\n\
-	[--out-freq=HZ | -f HZ] [--col-headers | -c]\n";
+	char outTxt[8000] = "\n\
+Usage: logDump [options] [values] logfile [ > outfile.ext ]\n\n\
+Options Summary (see below for shorthand option names):\n\n\
+	[ --help] [ --exp-format=(csv|tab|gpx|kml) ]\n\
+	[ --out-freq=HZ ] [ --col-headers ]\n";
 
 #ifdef HAS_PLPLOT
-	strcat(outTxt, "	[--plot | -p [--scale-min=N | -n N] [--scale-max=N | -x N] ]\n");
+	strcat(outTxt, "	[ --plot [ --scale-min=N ] [ --scale-max=N ] ]\n");
 #endif
 
 	strcat(outTxt, "\
-	[--gps-track | -g\n\
-		[--gps-wpoints=(include|only) | -w (i|o)]\n\
-		[--alt-source=(press|ukf) | -A (p|u)] [--alt-offset=N | -O N]\n\
-		[--track-min-hacc=M | -a M] [--track-min-vacc=M | -v M]\n\
+	[ --gps-track\n\
+		[ --gps-wpoints=(include|only) ]\n\
+		[ --alt-source=(press|ukf) ] [ --alt-offset=N ]\n\
+		[ --track-min-hacc=M ] [ --track-min-vacc=M ]\n\
 	]\n\
-	[--log-date=DDMMYY | -d DDMMYY] [--localtime | -l]\n\
-	[--trig-chan=N | -t N] [--trig-val=N | -r N] [--out-trig-only | -y]\n\
+	[ --log-date=DDMMYY ] [ --localtime ]\n\
+	[ --trig-chan=N ] [ --trig-val=N ] [ --trig-only ] [ --trig-delay=N ]\n\
 \n\
 Option Details:\n\
 \n\
- --help		Print this message.\n\
- --exp-format	Defines the export format. One of:\n\
-		txt (default), csv, tab, gpx, or kml (the last 2 choices only\n\
-		work with the --gps-track option).\n\
- --out-freq	Frequency of log dump output in whole Hz (0 < freq <= 200;\n\
-		default is 200 except when --gps-track is used, then it is 5).\n\
- --col-headers	Include column headings row in the export.\n\
- --log-date	Use specified UTC date as actual date of log\n\
-		instead of the log file modification date.\n\
-		Used only with the --gps-track or --gps-time options.\n\
-		Use DDMMYY format (eg. 250512).\n\
- --localtime	Output local time instead of UTC/GMT time (when used\n\
-		with --gps-track or --gps-time).\n\
- --trig-chan 	Radio channel used as a \"trigger\" (eg. for camera);\n\
-		if specified, a column named \"trigger\" will be included\n\
-		in the export with a value of 1 (triggered) or 0 (not trig.);\n\
-		if GPX/KML output format is used, then each triggered track\n\
-		point is also saved as a waypoint.\n\
- --trig-val	Radio channel \"triggered\" value (output value at which\n\
-		trigger is considered active); can be positive, negative, \n\
-		or zero; if zero, then channel value must be within +/- 100;\n\
-		(default is 250).\n\
- --out-trig-only Only export log records where the trigger is active.\n\
- --gps-track	Dumps a GPS track log in CSV format with date & time,\n\
-		lat, lon, altitude, and horizontal velocity columns.\n\
+ --help	(-h)	Print this message.\n\
 \n\
-Options only used along with --gps-track:\n\
- --gps-wpoints	Waypoint handling; one of: (i)nclude to export track\n\
-		AND waypoints, or (o)nly to export the track as waypoints; \n\
-		this option only applies when --exp-format is GPX or KML; \n\
-		default behavior is to export only a track unless --trig-chan\n\
-		is also used. NOTE: generating waypoints produces bigger\n\
-		files and may take more time/memory to generate!\n\
- --alt-source	Use alternate altitude source instead of GPS;\n\
-		One of: (p)ress to use un-adjusted pressure sensor altitude;\n\
-			(u)kf to use derived altitude (UKF_POSD);\n\
- --alt-offset	Meters to add to altitude to get true MSL;\n\
-		can be negative (decimal; default is 0).\n\
- --gps-min-hacc	Min. GPS horizontal accuracy for track log output\n\
-		in meters (decimal; default is 2).\n\
- --gps-min-vacc	Min. GPS vertical accuracy for track log output\n\
-		in meters (decimal; default is 2).\n\
+ --exp-format (-e)\n\
+	Defines the export format. One of:\n\
+		txt (default), csv, tab, gpx, or kml\n\
+	(the last 2 choices only work with the --gps-track option).\n\
+\n\
+ --out-freq (-f)\n\
+	Frequency of log dump output in whole Hz. Valid values are\n\
+	1 to 200; default is 200 except when --gps-track is used,\n\
+	in which case it is 5.\n\
+\n\
+ --col-headers (-c)\n\
+	Include column headings row in the export.\n\
+\n\
+ --log-date (-d)\n\
+	Use specified UTC date as actual date of log\n\
+	instead of the log file modification date.\n\
+	Used only with the --gps-track or --gps-time options.\n\
+	Use DDMMYY format (eg. 250512).\n\
+\n\
+ --localtime (-l)\n\
+	Output local time instead of UTC/GMT time (when used\n\
+	with --gps-track or --gps-time).\n\
+\n\
+ --trig-chan  (-t)\n\
+	Radio channel used as a \"trigger\" (eg. for camera);\n\
+	if specified, a column named \"trigger\" will be included\n\
+	in the export with an incrementing value when trigger is active;\n\
+	if GPX/KML output format is used, then each triggered track\n\
+	point is also saved as a special waypoint.\n\
+\n\
+ --trig-val (-r)\n\
+	Radio channel \"triggered\" value (output value at which\n\
+	trigger is considered active); can be positive, negative, \n\
+	or zero; if zero, then channel value must be within +/- 100;\n\
+	(default is 250).\n\
+\n\
+ --trig-delay (-i)\n\
+	Typical time delay (in ms) between trigger activation\n\
+	and actual shutter opening (eg. focus delay). Using this option\n\
+	will attempt to pinpoint the actual time/location of a photo.\n\
+	Only useful in conjunction with --trig-chan or --gmbl-trig.\n\
+\n\
+ --trig-only (-y)\n\
+	Only export log records where the trigger is active.\n\
+\n\
+ --gps-track (-g)\n\
+	Dumps a GPS track log in CSV format with date & time,\n\
+	lat, lon, altitude, and horizontal velocity columns.\n\
+\n\
+Options only useful in conjunction with --gps-track:\n\
+\n\
+ --gps-wpoints (-w)\n\
+	Waypoint handling; one of: (i)nclude to export track\n\
+	AND waypoints, or (o)nly to export the track as waypoints; \n\
+	this option only applies when --exp-format is GPX or KML; \n\
+	default behavior is to export only a track unless --trig-chan\n\
+	is also used. NOTE: generating waypoints produces bigger\n\
+	files and may take more time/memory to generate!\n\
+\n\
+ --alt-source (-A)\n\
+	Use alternate altitude source instead of GPS;\n\
+	One of: (p)ress to use un-adjusted pressure sensor altitude;\n\
+		(u)kf to use derived altitude (UKF_POSD);\n\
+\n\
+ --alt-offset (-O)\n\
+	Meters to add to altitude to get true MSL;\n\
+	can be negative (decimal; default is 0).\n\
+\n\
+ --gps-min-hacc (-a)\n\
+	Min. GPS horizontal accuracy for track log output\n\
+	in meters (decimal; default is 2).\n\
+\n\
+ --gps-min-vacc (-v)\n\
+	Min. GPS vertical accuracy for track log output\n\
+	in meters (decimal; default is 2).\n\
 \n\
 Values (at least one is required unless --gps-track is used):\n\
 \n\
  --micros	Microseconds since AQ boot.\n\
  --voltages	Voltage readings 0-14.\n\
- --rates	RATE X, Y, & Z.\n\
- --accs		ACC X, Y, & Z.\n\
- --mags		MAG X, Y, & Z.\n\
+ --rates	IMU RATE X, Y, & Z.\n\
+ --accs		IMU ACC X, Y, & Z.\n\
+ --acc-bias	ACC_BIAS X, Y, & Z.\n\
+ --mags		IMU MAG X, Y, & Z.\n\
  --mag-sign	ADC_MAG_SIGN.\n\
  --pressures	Pressure 1, pressure 2.\n\
  --pres-alt	UKF_ALT and UKF_PRES_ALT.\n\
@@ -138,6 +175,7 @@ Values (at least one is required unless --gps-track is used):\n\
  --radio-chan-8	Radio channel inputs 0-7\n\
  --radio-chan-gt8 Radio channel inputs 8-17\n\
  --radio-quality	\n\
+ --gmbl-trig	Trigger active state and activation count\n\
 \n\
 Examples:\n\
 	logDump --rates AQL-001.LOG\n\
@@ -146,7 +184,7 @@ Examples:\n\
 	logDump -g -e gpx -d 250812 AQL-001.LOG >gpslog-001.gpx\n\
 ");
 
-// Depreciated options: --lat --lon --extras
+// Depreciated options: --lat --lon --extras --aux-accs
 
 	fprintf(stderr, "%s", outTxt);
 }
@@ -165,11 +203,8 @@ void logDumpOpts(int argc, char **argv) {
 		O_PRESSURES,
 		O_PRES_ALT,
 		O_TEMPS,
-		O_AUX_ACCS,
 		O_VIN,
 		O_GPS_POS_MICROS,
-		O_LAT,
-		O_LON,
 		O_LAT_LON,
 		O_GPS_ALT,
 		O_GPS_POS_ACC,
@@ -186,11 +221,12 @@ void logDumpOpts(int argc, char **argv) {
 		O_MOTORS,
 		O_THROTTLE,
 		O_PRY,
-//		O_EXTRAS,
 		O_RADIO_QUALITY,
 		O_RADIO_CHAN_8,
 		O_RADIO_CHAN_GT8,
-		O_ATTITUDE
+		O_ATTITUDE,
+		O_ACC_BIAS,
+		O_GMBL_TRIG
 	};
 
         /* options descriptor */
@@ -198,15 +234,18 @@ void logDumpOpts(int argc, char **argv) {
                 {"help",			no_argument, 		NULL,		'h'},
                 {"plot",			optional_argument,	NULL,		'p'},
                 {"scale-min",		required_argument,	NULL,		'n'},
-                {"scale-max",		required_argument,	&longOpt,	'x'},
+                {"scale-max",		required_argument,	NULL,		'x'},
                 {"gps-track",		no_argument,		NULL,		'g'},
                 {"out-freq",		required_argument,	NULL,		'f'},
                 {"track-min-hacc",	required_argument,	NULL,		'a'},
                 {"track-min-vacc",	required_argument,	NULL,		'v'},
                 {"track-date",		required_argument,	NULL,		'd'},
-                {"trig-chan",		required_argument,	NULL,		't'},
+                {"trig-chan",		optional_argument,	NULL,		't'},
+                {"trig",			optional_argument,	NULL,		't'},
                 {"trig-val",		required_argument,	NULL,		'r'},
-                {"out-trig-only",	required_argument,	NULL,		'y'},
+                {"out-trig-only",	no_argument,		NULL,		'y'},
+                {"trig-only",		no_argument,		NULL,		'y'},
+                {"trig-delay",		required_argument,	NULL,		'i'},
                 {"localtime",		no_argument,		NULL,		'l'},
                 {"col-headers",		no_argument,		NULL,		'c'},
                 {"exp-format",		required_argument,	NULL,		'e'},
@@ -222,10 +261,7 @@ void logDumpOpts(int argc, char **argv) {
                 {"pressures",		no_argument,		&longOpt,	O_PRESSURES},
                 {"pres-alt",		no_argument,		&longOpt,	O_PRES_ALT},
                 {"temps",			no_argument,		&longOpt,	O_TEMPS},
-                {"aux-accs",		no_argument,		&longOpt,	O_AUX_ACCS},
                 {"vin",				no_argument,		&longOpt,	O_VIN},
-                {"lat",				no_argument,		&longOpt,	O_LAT},
-                {"lon",				no_argument,		&longOpt,	O_LON},
                 {"gps-lat-lon",		no_argument,		&longOpt,	O_LAT_LON},
                 {"gps-pos-acc",		no_argument,		&longOpt,	O_GPS_POS_ACC},
                 {"gps-pos-micros",	no_argument,		&longOpt,	O_GPS_POS_MICROS},
@@ -243,16 +279,17 @@ void logDumpOpts(int argc, char **argv) {
                 {"motors",			no_argument,		&longOpt,	O_MOTORS},
                 {"throttle",		no_argument,		&longOpt,	O_THROTTLE},
                 {"out-pry",			no_argument,		&longOpt,	O_PRY},
-//                {"extras",			no_argument,		&longOpt,	O_EXTRAS},
                 {"radio-quality",	no_argument,		&longOpt,	O_RADIO_QUALITY},
                 {"radio-chan-8",	no_argument,		&longOpt,	O_RADIO_CHAN_8},
                 {"radio-chan-gt8",	no_argument,		&longOpt,	O_RADIO_CHAN_GT8},
                 {"attitude",		no_argument,		&longOpt,	O_ATTITUDE},
+                {"acc-bias",		no_argument,		&longOpt,	O_ACC_BIAS},
+                {"gmbl-trig",		no_argument,		&longOpt,	O_GMBL_TRIG},
                 {NULL,				0,					NULL,		0}
 	};
 
 	scaleMin = scaleMax = nan("");
-	while ((ch = getopt_long(argc, argv, "hpglcyf:a:v:d:t:r:n:x:e:w:A:O:", longopts, NULL)) != -1) {
+	while ((ch = getopt_long(argc, argv, "hpglcyf:a:v:d:t::r:i:n:x:e:w:A:O:", longopts, NULL)) != -1) {
 		switch (ch) {
 			case 'h':
 				usage();
@@ -291,7 +328,7 @@ void logDumpOpts(int argc, char **argv) {
 				break;
 			case 'f':
 				if (atof(optarg)) {
-					outputFreq = atof(optarg);
+					outputFreq = atoi(optarg);
 					gpsTrackFreq = outputFreq;
 					usrSpecOutFreq++;
 				}
@@ -309,15 +346,20 @@ void logDumpOpts(int argc, char **argv) {
 				utcToLocal++;
 				break;
 			case 't':
-				camTrigChannel = atof(optarg);
+				if (optarg)
+					camTrigChannel = atoi(optarg);
+				dumpTrigger = true;
 				dumpHeaders[dumpNum] = "trigger";
 				dumpOrder[dumpNum++] = CAM_TRIGGER;
 				break;
 			case 'r':
-				camTrigValue = atof(optarg);
+				camTrigValue = atoi(optarg);
 				break;
 			case 'y':
 				dumpTriggeredOnly++;
+				break;
+			case 'i':
+				camTrigDelay = atoi(optarg) * 1000;
 				break;
 			case 'c':
 				includeHeaders++;
@@ -445,14 +487,6 @@ void logDumpOpts(int argc, char **argv) {
 						dumpHeaders[dumpNum] = "GPS_POS_UPDATE";
 						dumpOrder[dumpNum++] = GPS_POS_MICROS;
 						break;
-					case O_LAT:
-						dumpHeaders[dumpNum] = "GPS_LAT";
-						dumpOrder[dumpNum++] = LAT;
-						break;
-					case O_LON:
-						dumpHeaders[dumpNum] = "GPS_LON";
-						dumpOrder[dumpNum++] = LON;
-						break;
 					case O_LAT_LON:
 						dumpHeaders[dumpNum] = "GPS_LAT";
 						dumpOrder[dumpNum++] = LAT;
@@ -496,17 +530,17 @@ void logDumpOpts(int argc, char **argv) {
 						break;
 					case O_GPS_DOPS:
 						dumpHeaders[dumpNum] = "GPS_PDOP";
-						dumpOrder[dumpNum++] = AUX_RATEX;
+						dumpOrder[dumpNum++] = GPS_PDOP;
 						dumpHeaders[dumpNum] = "GPS_HDOP";
-						dumpOrder[dumpNum++] = AUX_RATEY;
+						dumpOrder[dumpNum++] = GPS_HDOP;
 						dumpHeaders[dumpNum] = "GPS_VDOP";
-						dumpOrder[dumpNum++] = AUX_RATEZ;
+						dumpOrder[dumpNum++] = GPS_VDOP;
 						dumpHeaders[dumpNum] = "GPS_TDOP";
-						dumpOrder[dumpNum++] = AUX_MAGX;
+						dumpOrder[dumpNum++] = GPS_TDOP;
 						dumpHeaders[dumpNum] = "GPS_NDOP";
-						dumpOrder[dumpNum++] = AUX_MAGY;
+						dumpOrder[dumpNum++] = GPS_NDOP;
 						dumpHeaders[dumpNum] = "GPS_EDOP";
-						dumpOrder[dumpNum++] = AUX_MAGZ;
+						dumpOrder[dumpNum++] = GPS_EDOP;
 						break;
 					case O_GPS_ITOW:
 						dumpHeaders[dumpNum] = "GPS_ITOW";
@@ -574,24 +608,12 @@ void logDumpOpts(int argc, char **argv) {
 						break;
 					case O_PRY:
 						dumpHeaders[dumpNum] = "MOT_PITCH";
-						dumpOrder[dumpNum++] = AUX_ACCX;
+						dumpOrder[dumpNum++] = MOT_PITCH;
 						dumpHeaders[dumpNum] = "MOT_ROLL";
-						dumpOrder[dumpNum++] = AUX_ACCY;
+						dumpOrder[dumpNum++] = MOT_ROLL;
 						dumpHeaders[dumpNum] = "MOT_YAW";
-						dumpOrder[dumpNum++] = AUX_ACCZ;
+						dumpOrder[dumpNum++] = MOT_YAW;
 						break;
-/*
-					case O_EXTRAS:
-						dumpHeaders[dumpNum] = "ADC_MAG_SIGN";
-						dumpOrder[dumpNum++] = ADC_MAG_SIGN;
-						dumpHeaders[dumpNum] = "GPS_VACC";
-						dumpOrder[dumpNum++] = GPS_VACC;
-						dumpHeaders[dumpNum] = "UKF_ALT";
-						dumpOrder[dumpNum++] = UKF_ALT;
-						dumpHeaders[dumpNum] = "UKF_PRES_ALT";
-						dumpOrder[dumpNum++] = UKF_PRES_ALT;
-						break;
-*/
 					case O_RADIO_QUALITY:
 						dumpHeaders[dumpNum] = "RADIO_QUALITY";
 						dumpOrder[dumpNum++] = RADIO_QUALITY;
@@ -646,6 +668,19 @@ void logDumpOpts(int argc, char **argv) {
 						dumpHeaders[dumpNum] = "pitch";
 						dumpOrder[dumpNum++] = PITCH;
 						break;
+					case O_ACC_BIAS:
+						dumpHeaders[dumpNum] = "ACC_BIAS_X";
+						dumpOrder[dumpNum++] = ACC_BIAS_X;
+						dumpHeaders[dumpNum] = "ACC_BIAS_Y";
+						dumpOrder[dumpNum++] = ACC_BIAS_Y;
+						dumpHeaders[dumpNum] = "ACC_BIAS_Z";
+						dumpOrder[dumpNum++] = ACC_BIAS_Z;
+						break;
+					case O_GMBL_TRIG:
+						dumpTrigger = true;
+						dumpHeaders[dumpNum] = "GMBL_TRIGGER";
+						dumpOrder[dumpNum++] = GMBL_TRIGGER;
+						break;
 				} // longopt switch
 				break;
 			default:
@@ -668,26 +703,26 @@ void attitudeExtractEulerQuat(float *q, float *yaw, float *pitch, float *roll) {
         *roll = atan((2.0f * (q1 * q2 + q0 * q3)) / (q3*q3 + q2*q2 - q1*q1 -q0*q0));
 }
 
-float presToAlt(float pressure) {
-	return (1.0 - pow(pressure / P0, 0.19)) * (1.0 / 22.558e-6);
-}
+//float presToAlt(float pressure) {
+//	return (1.0 - pow(pressure / P0, 0.19)) * (1.0 / 22.558e-6);
+//}
 
-float adcIDGVoltsToTemp(float volts) {
-	return (25.0f + (volts - ADC_TEMP_OFFSET) * ADC_TEMP_SLOPE);
-}
+//float adcIDGVoltsToTemp(float volts) {
+//	return (25.0f + (volts - ADC_TEMP_OFFSET) * ADC_TEMP_SLOPE);
+//}
 
 // TODO: optimize
-float adcT1VoltsToTemp(float volts) {
-	float r1;
-	float ln;
-	float kelvin;
-
-	r1 = (ADC_TEMP_R2 * ADC_REF_VOLTAGE) / volts - ADC_TEMP_R2;
-	ln = log(r1);
-	kelvin = ADC_TEMP_A + ADC_TEMP_B * ln + ADC_TEMP_C * (ln*ln*ln);
-
-	return (kelvin + ADC_KELVIN_TO_CELCIUS);
-}
+//float adcT1VoltsToTemp(float volts) {
+//	float r1;
+//	float ln;
+//	float kelvin;
+//
+//	r1 = (ADC_TEMP_R2 * ADC_REF_VOLTAGE) / volts - ADC_TEMP_R2;
+//	ln = log(r1);
+//	kelvin = ADC_TEMP_A + ADC_TEMP_B * ln + ADC_TEMP_C * (ln*ln*ln);
+//
+//	return (kelvin + ADC_KELVIN_TO_CELCIUS);
+//}
 
 // get filename from full path; return path, file, and ext separately
 struct filespec extractFileName(char *fp) {
@@ -756,17 +791,19 @@ void formatIsoTime(char *s, double v) {
 	sprintf(s, "%s", timeStr);
 }
 
-
 // input lat/lon in degrees, returns bearing in radians
-float navCalcBearing(double lat1, double lon1, double lat2, double lon2) {
-    float lat1f = lat1 * DEG_TO_RAD;
-    float lat2f = lat2 * DEG_TO_RAD;
-    float lon1f = lon1 * DEG_TO_RAD;
-    float lon2f = lon2 * DEG_TO_RAD;
+double navCalcBearing(double lat1, double lon1, double lat2, double lon2) {
+    lat1 *= (double)DEG_TO_RAD;
+    lat2 *= (double)DEG_TO_RAD;
+    lon1 *= (double)DEG_TO_RAD;
+    lon2 *= (double)DEG_TO_RAD;
+    double ret = atan2(sin(lat1) * (lon2 - lon1), lat2 - lat1);
 
-    return atan2f(sinf(lat1f) * (lon2f - lon1f), lat2f - lat1f);
+	if (!isfinite(ret))
+		ret = 0.0f;
+
+	return ret;
 }
-
 
 double logDumpGetValue(loggerRecord_t *l, int field) {
 	double val;
@@ -774,121 +811,46 @@ double logDumpGetValue(loggerRecord_t *l, int field) {
 
 	switch (field) {
 	case MICROS:
-		val =  l->lastUpdate;
+		val = l->lastUpdate;
 		break;
 	case VOLTAGE1:
-		val = l->voltages[0];
-		break;
 	case VOLTAGE2:
-		val = l->voltages[1];
-		break;
 	case VOLTAGE3:
-		val = l->voltages[2];
-		break;
 	case VOLTAGE4:
-		val = l->voltages[3];
-		break;
 	case VOLTAGE5:
-		val = l->voltages[4];
-		break;
 	case VOLTAGE6:
-		val = l->voltages[5];
-		break;
 	case VOLTAGE7:
-		val = l->voltages[6];
-		break;
 	case VOLTAGE8:
-		val = l->voltages[7];
-		break;
 	case VOLTAGE9:
-		val = l->voltages[8];
-		break;
 	case VOLTAGE10:
-		val = l->voltages[9];
-		break;
 	case VOLTAGE11:
-		val = l->voltages[10];
-		break;
 	case VOLTAGE12:
-		val = l->voltages[11];
-		break;
 	case VOLTAGE13:
-		val = l->voltages[12];
-		break;
 	case VOLTAGE14:
-		val = l->voltages[13];
-		break;
 	case VOLTAGE15:
-		val = l->voltages[14];
+		val = l->voltages[field-VOLTAGE1];
 		break;
 	case RATEX:
-		val = l->rate[0];
-		break;
 	case RATEY:
-		val = l->rate[1];
-		break;
 	case RATEZ:
-		val = l->rate[2];
+		val = l->rate[field-RATEX];
 		break;
 	case ACCX:
-		val = l->acc[0];
-		break;
 	case ACCY:
-		val = l->acc[1];
-		break;
 	case ACCZ:
-		val = l->acc[2];
+		val = l->acc[field-ACCX];
 		break;
 	case MAGX:
-		val = l->mag[0];
-		break;
 	case MAGY:
-		val = l->mag[1];
-		break;
 	case MAGZ:
-		val = l->mag[2];
+		val = l->mag[field-MAGX];
 		break;
 	case PRESSURE1:
-		val = l->pressure[0];
-		break;
 	case PRESSURE2:
-		val = l->pressure[1];
+		val = l->pressure[field-PRESSURE1];
 		break;
 	case TEMP1:
 		val = l->temp[0];
-		break;
-	case TEMP2:
-		val = l->temp[1];
-		break;
-	case TEMP3:
-		val = l->temp[2];
-		break;
-	case AUX_RATEX:
-		val = l->rateAux[0];
-		break;
-	case AUX_RATEY:
-		val = l->rateAux[1];
-		break;
-	case AUX_RATEZ:
-		val = l->rateAux[2];
-		break;
-	case AUX_ACCX:
-		val = l->accAux[0];
-		break;
-	case AUX_ACCY:
-		val = l->accAux[1];
-		break;
-	case AUX_ACCZ:
-		val = l->accAux[2];
-		break;
-	case AUX_MAGX:
-		val = l->magAux[0];
-		break;
-	case AUX_MAGY:
-		val = l->magAux[1];
-		break;
-	case AUX_MAGZ:
-		val = l->magAux[2];
 		break;
 	case VIN:
 		val = l->vIn;
@@ -918,25 +880,29 @@ double logDumpGetValue(loggerRecord_t *l, int field) {
 		val = l->gpsVelUpdate;
 		break;
 	case GPS_VELN:
-		val = l->gpsVel[0];
-		break;
 	case GPS_VELE:
-		val = l->gpsVel[1];
-		break;
 	case GPS_VELD:
-		val = l->gpsVel[2];
+		val = l->gpsVel[field-GPS_VELN];
 		break;
 	case GPS_VEL_ACC:
 		val = l->gpsVelAcc;
 		break;
+	case GPS_PDOP:
+	case GPS_HDOP:
+	case GPS_VDOP:
+	case GPS_TDOP:
+	case GPS_NDOP:
+	case GPS_EDOP:
+		val = l->gpsDops[field-GPS_PDOP];
+		break;
+	case GPS_ITOW:
+	case GPS_UTC_TIME:
+		val = l->gpsItow;
+		break;
 	case POSN:
-		val = l->pos[0];
-		break;
 	case POSE:
-		val = l->pos[1];
-		break;
 	case POSD:
-		val = l->pos[2];
+		val = l->pos[field-POSN];
 		break;
 	case UKF_ALT:
 		val = l->ukfAlt;
@@ -945,138 +911,59 @@ double logDumpGetValue(loggerRecord_t *l, int field) {
 		val = l->pressAlt;
 		break;
 	case VELN:
-		val = l->vel[0];
-		break;
 	case VELE:
-		val = l->vel[1];
-		break;
 	case VELD:
-		val = l->vel[2];
+		val = l->vel[field-VELN];
 		break;
 	case QUAT0:
-		val = l->quat[0];
-		break;
 	case QUAT1:
-		val = l->quat[1];
-		break;
 	case QUAT2:
-		val = l->quat[2];
-		break;
 	case QUAT3:
-		val = l->quat[3];
+		val = l->quat[field-QUAT0];
 		break;
 	case MOTOR1:
-		val = l->motors[0];
-		break;
 	case MOTOR2:
-		val = l->motors[1];
-		break;
 	case MOTOR3:
-		val = l->motors[2];
-		break;
 	case MOTOR4:
-		val = l->motors[3];
-		break;
 	case MOTOR5:
-		val = l->motors[4];
-		break;
 	case MOTOR6:
-		val = l->motors[5];
-		break;
 	case MOTOR7:
-		val = l->motors[6];
-		break;
 	case MOTOR8:
-		val = l->motors[7];
-		break;
 	case MOTOR9:
-		val = l->motors[8];
-		break;
 	case MOTOR10:
-		val = l->motors[9];
-		break;
 	case MOTOR11:
-		val = l->motors[10];
-		break;
 	case MOTOR12:
-		val = l->motors[11];
-		break;
 	case MOTOR13:
-		val = l->motors[12];
-		break;
 	case MOTOR14:
-		val = l->motors[13];
+		val = l->motors[field-MOTOR1];
 		break;
 	case THROTTLE:
 		val = l->throttle;
 		break;
-/*
-	case EXTRA1:
-		val = l->extra[0];
+	case MOT_PITCH:
+	case MOT_ROLL:
+	case MOT_YAW:
+		val = l->motPRY[field-MOT_PITCH];
 		break;
-	case EXTRA2:
-		val = l->extra[1];
-		break;
-	case EXTRA3:
-		val = l->extra[2];
-		break;
-	case EXTRA4:
-		val = l->extra[3];
-		break;
-*/
 	case RADIO_CHANNEL1:
-		val = l->radioChannels[0];
-		break;
 	case RADIO_CHANNEL2:
-		val = l->radioChannels[1];
-		break;
 	case RADIO_CHANNEL3:
-		val = l->radioChannels[2];
-		break;
 	case RADIO_CHANNEL4:
-		val = l->radioChannels[3];
-		break;
 	case RADIO_CHANNEL5:
-		val = l->radioChannels[4];
-		break;
 	case RADIO_CHANNEL6:
-		val = l->radioChannels[5];
-		break;
 	case RADIO_CHANNEL7:
-		val = l->radioChannels[6];
-		break;
 	case RADIO_CHANNEL8:
-		val = l->radioChannels[7];
-		break;
 	case RADIO_CHANNEL9:
-		val = l->radioChannels[8];
-		break;
 	case RADIO_CHANNEL10:
-		val = l->radioChannels[9];
-		break;
 	case RADIO_CHANNEL11:
-		val = l->radioChannels[10];
-		break;
 	case RADIO_CHANNEL12:
-		val = l->radioChannels[11];
-		break;
 	case RADIO_CHANNEL13:
-		val = l->radioChannels[12];
-		break;
 	case RADIO_CHANNEL14:
-		val = l->radioChannels[13];
-		break;
 	case RADIO_CHANNEL15:
-		val = l->radioChannels[14];
-		break;
 	case RADIO_CHANNEL16:
-		val = l->radioChannels[15];
-		break;
 	case RADIO_CHANNEL17:
-		val = l->radioChannels[16];
-		break;
 	case RADIO_CHANNEL18:
-		val = l->radioChannels[17];
+		val = l->radioChannels[field-RADIO_CHANNEL1];
 		break;
 	case RADIO_QUALITY:
 		val = l->radioQuality;
@@ -1084,29 +971,49 @@ double logDumpGetValue(loggerRecord_t *l, int field) {
 	case RADIO_ERRORS:
 		val = l->radioErrors;
 		break;
+	case ACC_BIAS_X:
+	case ACC_BIAS_Y:
+	case ACC_BIAS_Z:
+		val = l->accBias[field-ACC_BIAS_X];
+		break;
+
+	// calculated values:
 	case GPS_H_SPEED:
 		val = (fabs(l->gpsVel[0]) + fabs(l->gpsVel[1])); // * 3600 / 1000; // km/h
 		break;
-	case GPS_UTC_TIME:
-	case GPS_ITOW:
-		val = l->gpsItow;
-		break;
 	case CAM_TRIGGER:
-		if ( camTrigChannel > 0 && camTrigChannel < 19 && (
-				(camTrigValue < 0 && l->radioChannels[camTrigChannel-1] < camTrigValue) ||
-				(camTrigValue > 0 && l->radioChannels[camTrigChannel-1] > camTrigValue) ||
-				(camTrigValue == 0 && l->radioChannels[camTrigChannel-1] > -TRIG_ZERO_BUFFER && l->radioChannels[camTrigChannel-1] < TRIG_ZERO_BUFFER) ) )
-			val = 1;
-		else
+	case GMBL_TRIGGER:
+		// is trigger active?
+		if ( l->gimbalTrig || (
+				camTrigChannel > 0 && camTrigChannel < 19 && (
+					(camTrigValue < 0 && l->radioChannels[camTrigChannel-1] < camTrigValue) ||
+					(camTrigValue > 0 && l->radioChannels[camTrigChannel-1] > camTrigValue) ||
+					(camTrigValue == 0 && l->radioChannels[camTrigChannel-1] > -TRIG_ZERO_BUFFER && l->radioChannels[camTrigChannel-1] < TRIG_ZERO_BUFFER) )
+				)) {
+			// first time this trigger is activated
+			if (!camTrigActivatedTime)
+				camTrigActivatedTime = l->lastUpdate;
+
+			// use count in LOG_GMBL_TRIGGER if available
+			val = (l->gimbalTrig) ? l->gimbalTrig : ++camTrigCnt;
+
+			// if a shutter delay is configured, we only want one positive return value per trigger activation, after the specified delay time
+			if (camTrigDelay && (val == camTrigLastActive || l->lastUpdate < camTrigActivatedTime + camTrigDelay))
+				val = 0;
+		}
+		// trigger is not active
+		else {
 			val = 0;
+			camTrigActivatedTime = 0;
+		}
 		break;
 	case ROLL:
 		attitudeExtractEulerQuat(l->quat, &rpy[2], &rpy[1], &rpy[0]);
-		val = -rpy[0] * RAD_TO_DEG;
+		val = rpy[0] * -1.0 * RAD_TO_DEG;
 		break;
 	case PITCH:
 		attitudeExtractEulerQuat(l->quat, &rpy[2], &rpy[1], &rpy[0]);
-		val = -rpy[1] * RAD_TO_DEG;
+		val = rpy[1] * -1.0 * RAD_TO_DEG;
 		break;
 	case YAW:
 		attitudeExtractEulerQuat(l->quat, &rpy[2], &rpy[1], &rpy[0]);
@@ -1153,6 +1060,7 @@ void logDumpText(loggerRecord_t *l) {
 	char *trackName;
 	char lclTrigWptName[40];
 	static bool homeSet;
+	unsigned trigCount;
 	expFields_t exp;
 
 	// check for home position being set
@@ -1167,6 +1075,7 @@ void logDumpText(loggerRecord_t *l) {
 			homeSet = false;
 	}
 
+	// flat text format
 	if (!exportGPX && !exportKML && !exportMAV) {
 
 		for (i = 0; i < dumpNum; i++) {
@@ -1177,6 +1086,9 @@ void logDumpText(loggerRecord_t *l) {
 			else
 				sprintf(outStr, "%.15G", logVal);
 
+			if ((dumpOrder[i] == CAM_TRIGGER || dumpOrder[i] == GMBL_TRIGGER) && (bool)logVal)
+				camTrigLastActive = logVal;
+
 			printf(outStr);
 
 			if (i < dumpNum-1)
@@ -1186,6 +1098,11 @@ void logDumpText(loggerRecord_t *l) {
 		printf("\n"); // end of export row
 
 	}
+	// mavlink log format (experimental)
+	else if (exportMAV) {
+		mavlinkDo(l);
+	}
+	// KML/GPX format
 	else {
 
 		strcpy(exp.name, "");
@@ -1210,84 +1127,77 @@ void logDumpText(loggerRecord_t *l) {
 		exp.pitch = logDumpGetValue(l, PITCH);
 		exp.lat = logDumpGetValue(l, LAT);
 
-		if (exportMAV) {
-			mavlinkDo(l);
-		}
-		else {
+		formatIsoTime(outStr, logDumpGetValue(l, GPS_UTC_TIME));
+		strcpy(exp.time, outStr);
 
-			formatIsoTime(outStr, logDumpGetValue(l, GPS_UTC_TIME));
-			strcpy(exp.time, outStr);
-
-			if (logDumpGetValue(l, CAM_TRIGGER)) {
-				if (!gpxTrigStat) {
-					gpxTrigCnt++;
-					gpxTrigStat++;
-				}
-				sprintf(lclTrigWptName, "%s-%d", trigWptName, gpxTrigCnt);
+		if (dumpTrigger) {
+			trigCount = (unsigned)logDumpGetValue(l, CAM_TRIGGER);
+			if (trigCount) {
+				sprintf(lclTrigWptName, "%s-%d", trigWptName, trigCount);
 				sprintf(exp.name, lclTrigWptName);
 				strcpy(exp.wptstyle, "trg_waypoint");
 				mkwpt = 1;
-				gpxWptCnt++;
-			} else if (gpxTrigStat)
-				gpxTrigStat = 0;
-
-			if ( (gpsTrackAsWpts || gpsTrackInclWpts) && !strlen(exp.name) ) {
-				gpxWptCnt++;
-				sprintf(lclTrigWptName, "%s-%d", "wpt", gpxWptCnt);
-				sprintf(exp.name, lclTrigWptName);
+				camTrigLastActive = trigCount;
 			}
+		}
 
-			if (!gpsTrackAsWpts) {
-				// if exporting a track, check for gap in gps time and start a new track if gap is too large;
-				// this is to avoid interpolated lines between the end/start points
-				gpsFixTime = logDumpGetValue(l, GPS_UTC_TIME);
-				if (lastGpsFixTime && gpsFixTime - lastGpsFixTime > GPS_TRACK_MAX_TM_GAP) {
-					gpxTrkCnt++;
-					sprintf(trackName, "%s-%d", logfilespec.name, gpxTrkCnt);
-					if (exportGPX) {
-						printf(gpxTrkEnd);
-						printf(gpxTrkStart, trackName);
-					} else {
-						printf(kmlModel, trackModelURL);
-						printf(kmlTrkEnd);
-						printf(kmlTrkStart, trackName, trackAltMode);
-					}
-				}
-				lastGpsFixTime = gpsFixTime;
+		if ( (gpsTrackAsWpts || gpsTrackInclWpts) && !strlen(exp.name) ) {
+			gpxWptCnt++;
+			sprintf(lclTrigWptName, "%s-%d", "wpt", gpxWptCnt);
+			sprintf(exp.name, lclTrigWptName);
+		}
 
-				// write the export record to stdout
-				if (exportGPX)
-					// template value order: lat, lon, ele, time, heading, speed
-					printf(gpxTrkptTempl, exp.lat, exp.lon, exp.alt, exp.time, exp.hdg, exp.speed);
-				else {
-					printf(kmlTrkTimestamp, exp.time);
-					// template value order: lon, lat, ele
-					printf(kmlTrkCoords, exp.lon, exp.lat, exp.alt);
-					// template value order: heading, tilt, roll
-					printf(kmlTrkAngles, exp.hdg, exp.pitch, exp.roll);
-				}
-
-			}
-
-			if (mkwpt || gpsTrackAsWpts || gpsTrackInclWpts) {
-				if (exportGPX)
-					// template value order: lat, lon, ele, time, heading, speed, name
-					sprintf(gpxTrkptOut, gpxWptTempl, exp.lat, exp.lon, exp.alt, exp.time, exp.hdg, exp.speed, exp.name);
-				else
-					// str replace order: wpt name, date/time, lat, lon, alt, speed, speed (km/h), heading, climb rate,
-					//		isotime, wpt style, alt. mode, lon, lat, alt
-					sprintf(gpxTrkptOut, kmlWptTempl, exp.name, exp.time, exp.lat, exp.lon, exp.alt, exp.speed, exp.speed*3600/1000, exp.hdg, -exp.climb,
-							exp.time, exp.wptstyle, waypointAltMode, exp.lon, exp.lat, exp.alt );
-
-				if (gpsTrackAsWpts)
-					printf(gpxTrkptOut);
-				else {
-					gpxWaypoints = (char *) realloc(gpxWaypoints, (strlen(gpxWaypoints) + (strlen(gpxTrkptOut)+1)) * sizeof(char));
-					strcat(gpxWaypoints, gpxTrkptOut);
+		if (!gpsTrackAsWpts) {
+			// if exporting a track, check for gap in gps time and start a new track if gap is too large;
+			// this is to avoid interpolated lines between the end/start points
+			gpsFixTime = logDumpGetValue(l, GPS_UTC_TIME);
+			if (lastGpsFixTime && gpsFixTime - lastGpsFixTime > GPS_TRACK_MAX_TM_GAP) {
+				gpxTrkCnt++;
+				sprintf(trackName, "%s-%d", logfilespec.name, gpxTrkCnt);
+				if (exportGPX) {
+					printf(gpxTrkEnd);
+					printf(gpxTrkStart, trackName);
+				} else {
+					printf(kmlModel, trackModelURL);
+					printf(kmlTrkEnd);
+					printf(kmlTrkStart, trackName, trackAltMode);
 				}
 			}
-		} // GPX/KML export type
-	} // GPX/KML/MAV export type
+			lastGpsFixTime = gpsFixTime;
+
+			// write the export record to stdout
+			if (exportGPX)
+				// template value order: lat, lon, ele, time, heading, speed
+				printf(gpxTrkptTempl, exp.lat, exp.lon, exp.alt, exp.time, exp.hdg, exp.speed);
+			else {
+				printf(kmlTrkTimestamp, exp.time);
+				// template value order: lon, lat, ele
+				printf(kmlTrkCoords, exp.lon, exp.lat, exp.alt);
+				// template value order: heading, tilt, roll
+				printf(kmlTrkAngles, exp.hdg, exp.pitch, exp.roll);
+			}
+
+		}
+
+		if (mkwpt || gpsTrackAsWpts || gpsTrackInclWpts) {
+			if (exportGPX)
+				// template value order: lat, lon, ele, time, heading, speed, name
+				sprintf(gpxTrkptOut, gpxWptTempl, exp.lat, exp.lon, exp.alt, exp.time, exp.hdg, exp.speed, exp.name);
+			else
+				// str replace order: wpt name, date/time, lat, lon, alt, speed, speed (km/h), heading, climb rate,
+				//		isotime, wpt style, alt. mode, lon, lat, alt
+				sprintf(gpxTrkptOut, kmlWptTempl, exp.name, exp.time, exp.lat, exp.lon, exp.alt, exp.speed, exp.speed*3600/1000,
+						exp.hdg, exp.roll, exp.pitch, -exp.climb, exp.time, exp.wptstyle, waypointAltMode, exp.lon, exp.lat, exp.alt );
+
+			if (gpsTrackAsWpts)
+				printf(gpxTrkptOut);
+			else {
+				gpxWaypoints = (char *) realloc(gpxWaypoints, (strlen(gpxWaypoints) + (strlen(gpxTrkptOut)+1)) * sizeof(char));
+				strcat(gpxWaypoints, gpxTrkptOut);
+			}
+		}
+
+	} // export format
 }
 
 #ifdef HAS_PLPLOT

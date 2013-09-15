@@ -140,11 +140,20 @@ static const char kmlTrkExtDataEnd[] = "</gx:SimpleArrayData></SchemaData></Exte
 // str replace order: speed
 static const char kmlTrkExtDataValue[] = "<gx:value>%.4f</gx:value>\n";
 
-// str replace order: wpt name, date/time, lat, lon, alt, speed, heading, climb rate, isotime, wpt style, alt. mode, lon, lat, alt
+// str replace order: wpt name, date/time, lat, lon, alt, speed, heading, roll, pitch, climb rate, isotime, wpt style, alt. mode, lon, lat, alt
 static const char kmlWptTempl[] = "<Placemark>\n\
 	<name><![CDATA[%s]]></name>\n\
-	<description><![CDATA[<i>Time:</i> %s<br/><i>Latitude:</i> %.9f&#176;<br/><i>Longitude:</i> %.9f&#176;<br/>\n\
-		<i>Elevation:</i> %.3f m<br/><i>Speed:</i> %.5f m/s (%.3f km/h)<br/><i>Heading:</i> %.2f&#176;<br/><i>Climb Rate (approx.):</i> %.5f m/s]]></description>\n\
+	<description><![CDATA[\n\
+		<i>Time:</i> %s<br/>\n\
+		<i>Latitude:</i> %.9f&#176;<br/>\n\
+		<i>Longitude:</i> %.9f&#176;<br/>\n\
+		<i>Elevation:</i> %.3f m<br/>\n\
+		<i>Speed:</i> %.5f m/s (%.3f km/h)<br/>\n\
+		<i>Heading:</i> %.2f&#176;<br/>\n\
+		<i>Roll:</i> %.2f&#176;<br/>\n\
+		<i>Pitch:</i> %.2f&#176;<br/>\n\
+		<i>Climb Rate (approx.):</i> %.5f m/s\n\
+	]]></description>\n\
 	<TimeStamp><when>%s</when></TimeStamp>\n\
 	<styleUrl>#%s</styleUrl>\n\
 	<Point>\n\

@@ -17,6 +17,8 @@ using namespace Eigen;
 #define MAX_DEPTH	16
 #define DEG_TO_RAD (M_PI / 180.0f)
 
+#define NUM_PORTS	16
+
 #define DEFAULT_MASS_ARM	80
 #define DEFAULT_MASS_MOTOR	100
 #define DEFAULT_MASS_ESC 	20
@@ -448,7 +450,7 @@ void XMLCALL endElement(void *ctx, const XML_Char *name __attribute__((__unused_
 			break;
 		case ELEMENT_CUBE:
 			if (context->validCraft) {
-				l1Data.massObjects(context->n) = atoi(context->value);
+				l1Data.massObjects(context->n) = atof(context->value);
 				context->n++;
 			}
 			break;
@@ -648,12 +650,13 @@ void l1ToolObjCalc() {
 		l1Data.offsetCG(2) += objs[i].mass * objs[i].z;
 
 		l1Data.totalMass += objs[i].mass;
+//printf("[%d] %f\n", i, objs[i].mass);
 	}
 	l1Data.offsetCG /= l1Data.totalMass;
 
 	if (!outputMIXfile) {
-	printf("MASS [%d objs] = %f Kg\n", o, l1Data.totalMass);
-	printf("CG Offset = %f, %f, %f\n", l1Data.offsetCG(0), l1Data.offsetCG(1), l1Data.offsetCG(2));
+		printf("MASS [%d objs] = %f Kg\n", o, l1Data.totalMass);
+		printf("CG Offset = %f, %f, %f\n", l1Data.offsetCG(0), l1Data.offsetCG(1), l1Data.offsetCG(2));
 	}
 
 	// calculate J matrix
@@ -820,7 +823,7 @@ void l1ToolCalc(void) {
                     fprintf(outFP, "[Yaw]\n");
                     break;
                 }
-                for (i = 1; i <= 14; i++) {
+                for (i = 1; i <= NUM_PORTS; i++) {
                     val = 0.0f;
                     j = l1ToolFindPort(i);
                     if (j >= 0)
@@ -831,7 +834,7 @@ void l1ToolCalc(void) {
                 fprintf(outFP, "\n"); // blank line ends section
             }
         } else { // output generated matrix and #defines for DEFAULT_MOT_PWRD params
-		for (i = 1; i <= 14; i++) {
+		for (i = 1; i <= NUM_PORTS; i++) {
 			t = 0.0;
 			p = 0.0;
 			r = 0.0;
@@ -854,7 +857,7 @@ void l1ToolCalc(void) {
 	// otherwise show L1 results
 	else {
 		displayMatrix("Mt", l1Data.Mt);
-		for (i = 1; i <= 14; i++) {
+		for (i = 1; i <= NUM_PORTS; i++) {
 			t = 0.0;
 			p = 0.0;
 			r = 0.0;
@@ -874,7 +877,7 @@ void l1ToolCalc(void) {
 		}
 
 		displayMatrix("M", l1Data.M);
-		for (i = 1; i <= 14; i++) {
+		for (i = 1; i <= NUM_PORTS; i++) {
 			r = 0.0;
 			p = 0.0;
 			y = 0.0;
@@ -891,9 +894,9 @@ void l1ToolCalc(void) {
 		}
 
 		displayMatrix("J", l1Data.J);
-		fprintf(outFP, "#define DEFAULT_L1_ATT_J_ROLL\t%f\n", l1Data.J(0, 0));
-		fprintf(outFP, "#define DEFAULT_L1_ATT_J_PITCH\t%f\n", l1Data.J(1, 1));
-		fprintf(outFP, "#define DEFAULT_L1_ATT_J_YAW\t%f\n", l1Data.J(2, 2));
+		fprintf(outFP, "#define DEFAULT_L1_ATT_J_ROLL\t%g\n", l1Data.J(0, 0));
+		fprintf(outFP, "#define DEFAULT_L1_ATT_J_PITCH\t%g\n", l1Data.J(1, 1));
+		fprintf(outFP, "#define DEFAULT_L1_ATT_J_YAW\t%g\n", l1Data.J(2, 2));
 	}
 }
 

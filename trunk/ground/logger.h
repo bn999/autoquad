@@ -194,7 +194,7 @@ typedef struct {
 	float gpsVel[3];		// GPS_VELN, E, D
 	float gpsVelAcc;		// GPS_SACC
 	float gpsVAcc;			// GPS_VACC
-	float gpsItow;			// GPS_ITOW
+	unsigned int gpsItow;		// GPS_ITOW
 	float gpsDops[6]; 		// GPS_(P)DOP,H,V,T,N,E
 
 	short int motors[14];	// MOT_MOTOR0 - 13

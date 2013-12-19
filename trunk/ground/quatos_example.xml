@@ -4,7 +4,7 @@
 	+1 == CW rotation
 	-1 == CCW rotation
 -->
-<l1_configuration>
+<quatos_configuration>
         <craft id="mk_hex" config="hex_plus">
                         <port rotation="+1">9</port>
                         <port rotation="-1">13</port>
@@ -138,4 +138,4 @@
 			<cube name="center" dimx="0.140" dimy="0.127" dimz="0.065" offsetx="0" offsety="0" offsetz="-0.04">1802</cube>
 		</mass>
 	</craft>
-</l1_configuration>
+</quatos_configuration>

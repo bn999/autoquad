@@ -41,7 +41,7 @@ enum {
 };
 
 const char *elementNames[] = {
-	"l1_configuration",
+	"quatos_configuration",
 	"craft",
 	"ports",
 	"port",
@@ -111,9 +111,9 @@ typedef struct {
 	MatrixXd PITCH, ROLL, YAW, THROT;
 	MatrixXd PD, M, Mt, PID;
 	Matrix3d J;
-} l1Data_t;
+} quatosData_t;
 
-l1Data_t l1Data;
+quatosData_t quatosData;
 int outputPID;
 int outputMIXfile;
 FILE *outFP;
@@ -143,17 +143,17 @@ bool pseudoInverse(const _Matrix_Type_ &a, _Matrix_Type_ &result, double epsilon
 	array().inverse(), 0) ).asDiagonal() * svd.matrixU().adjoint();
 }
 
-int l1ToolFindPort(int port) {
+int quatosToolFindPort(int port) {
 	int i;
 
-	for (i = 0; i < l1Data.ports.size(); i++)
-		if (l1Data.ports(i) == port)
+	for (i = 0; i < quatosData.ports.size(); i++)
+		if (quatosData.ports(i) == port)
 			return i;
 
 	return -1;
 }
 
-int l1ToolConfigTypeByName(const XML_Char *name) {
+int quatosToolConfigTypeByName(const XML_Char *name) {
 	int i;
 
 	for (i = 0; i < CONFIG_NUM; i++)
@@ -163,7 +163,7 @@ int l1ToolConfigTypeByName(const XML_Char *name) {
 	return -1;
 }
 
-int l1ToolElementIdByName(const XML_Char *name) {
+int quatosToolElementIdByName(const XML_Char *name) {
 	int i;
 
 	for (i = 0; i < ELEMENT_NUM; i++)
@@ -173,7 +173,7 @@ int l1ToolElementIdByName(const XML_Char *name) {
 	return -1;
 }
 
-const XML_Char *l1ToolFindAttr(const XML_Char **atts, const char *name) {
+const XML_Char *quatosToolFindAttr(const XML_Char **atts, const char *name) {
 	const XML_Char *value = NULL;
 
 	while (*atts) {
@@ -191,7 +191,7 @@ void parse(XML_Parser parser, char c, int isFinal) {
 	if (XML_STATUS_OK == XML_Parse(parser, &c, isFinal ^ 1, isFinal))
 		return;
 
-	fprintf(stderr, "l1Tool: parsing XML failed at line %lu, pos %lu: %s\n",
+	fprintf(stderr, "quatosTool: parsing XML failed at line %lu, pos %lu: %s\n",
 		(unsigned long)XML_GetCurrentLineNumber(parser),
 		(unsigned long)XML_GetCurrentColumnNumber(parser),
 		XML_ErrorString(XML_GetErrorCode(parser)) );
@@ -200,9 +200,9 @@ void parse(XML_Parser parser, char c, int isFinal) {
 }
 
 void resetCraft(parseContext_t *context) {
-	if (!l1Data.n) {
+	if (!quatosData.n) {
 	int n;
-	switch (l1Data.craftType) {
+	switch (quatosData.craftType) {
 		case CONFIG_QUAD_PLUS:
 		case CONFIG_QUAD_X:
 			n = 4;
@@ -219,95 +219,95 @@ void resetCraft(parseContext_t *context) {
 			context->validCraft = 0;
 			break;
 	}
-	l1Data.n = n;
+	quatosData.n = n;
 	}
 
-	l1Data.ports.setZero(1, l1Data.n);
-	l1Data.propDir.setZero(1, l1Data.n);
-	l1Data.massMots.setZero(l1Data.n);
-	l1Data.massEscs.setZero(l1Data.n);
-	l1Data.massArms.setZero(l1Data.n);
-	l1Data.frameX.resize(l1Data.n);
-	l1Data.frameY.resize(l1Data.n);
+	quatosData.ports.setZero(1, quatosData.n);
+	quatosData.propDir.setZero(1, quatosData.n);
+	quatosData.massMots.setZero(quatosData.n);
+	quatosData.massEscs.setZero(quatosData.n);
+	quatosData.massArms.setZero(quatosData.n);
+	quatosData.frameX.resize(quatosData.n);
+	quatosData.frameY.resize(quatosData.n);
 
-	l1Data.massEsc = DEFAULT_MASS_ESC;
-	l1Data.massMot = DEFAULT_MASS_MOTOR;
-	l1Data.massArm = DEFAULT_MASS_ARM;
-	l1Data.distEsc = DEFAULT_DIST_ESC;
-	l1Data.distMot = DEFAULT_DIST_MOTOR;
+	quatosData.massEsc = DEFAULT_MASS_ESC;
+	quatosData.massMot = DEFAULT_MASS_MOTOR;
+	quatosData.massArm = DEFAULT_MASS_ARM;
+	quatosData.distEsc = DEFAULT_DIST_ESC;
+	quatosData.distMot = DEFAULT_DIST_MOTOR;
 
 }
 
 void parseCube(parseContext_t *context, const XML_Char **atts) {
 	const XML_Char *att;
 	
-	l1Data.massObjects.conservativeResize(context->n+1);
-	l1Data.objectsDim.conservativeResize(context->n+1, 3);
-	l1Data.objectsOffset.conservativeResize(context->n+1, 3);
+	quatosData.massObjects.conservativeResize(context->n+1);
+	quatosData.objectsDim.conservativeResize(context->n+1, 3);
+	quatosData.objectsOffset.conservativeResize(context->n+1, 3);
 
-	att = l1ToolFindAttr(atts, "dimx");
+	att = quatosToolFindAttr(atts, "dimx");
 	if (att)
-		l1Data.objectsDim(context->n, 0) = atof(att);
-	att = l1ToolFindAttr(atts, "dimy");
+		quatosData.objectsDim(context->n, 0) = atof(att);
+	att = quatosToolFindAttr(atts, "dimy");
 	if (att)
-		l1Data.objectsDim(context->n, 1) = atof(att);
-	att = l1ToolFindAttr(atts, "dimz");
+		quatosData.objectsDim(context->n, 1) = atof(att);
+	att = quatosToolFindAttr(atts, "dimz");
 	if (att)
-		l1Data.objectsDim(context->n, 2) = atof(att);
+		quatosData.objectsDim(context->n, 2) = atof(att);
 
-	att = l1ToolFindAttr(atts, "offsetx");
+	att = quatosToolFindAttr(atts, "offsetx");
 	if (att)
-		l1Data.objectsOffset(context->n, 0) = atof(att);
-	att = l1ToolFindAttr(atts, "offsety");
+		quatosData.objectsOffset(context->n, 0) = atof(att);
+	att = quatosToolFindAttr(atts, "offsety");
 	if (att)
-		l1Data.objectsOffset(context->n, 1) = atof(att);
-	att = l1ToolFindAttr(atts, "offsetz");
+		quatosData.objectsOffset(context->n, 1) = atof(att);
+	att = quatosToolFindAttr(atts, "offsetz");
 	if (att)
-		l1Data.objectsOffset(context->n, 2) = atof(att);
+		quatosData.objectsOffset(context->n, 2) = atof(att);
 }
 
 void parsePort(parseContext_t *context, const XML_Char **atts) {
 	const XML_Char *att;
 	
-	att = l1ToolFindAttr(atts, "rotation");
+	att = quatosToolFindAttr(atts, "rotation");
 	if (!att) {
-		fprintf(stderr, "l1Tool: craft '%s' missing config type\n", l1Data.craftId);
+		fprintf(stderr, "quatosTool: craft '%s' missing config type\n", quatosData.craftId);
 	}
 	else {
-		l1Data.propDir(0, context->n) = atoi(att);
+		quatosData.propDir(0, context->n) = atoi(att);
 	}
 }
 
 void parseCraft(parseContext_t *context, const XML_Char **atts) {
 	const XML_Char *att;
 
-	att = l1ToolFindAttr(atts, "id");
-	if (att && (!*l1Data.craftId || !strcmp(att, l1Data.craftId))) {
-		strncpy(l1Data.craftId, att, strlen(att));
+	att = quatosToolFindAttr(atts, "id");
+	if (att && (!*quatosData.craftId || !strcmp(att, quatosData.craftId))) {
+		strncpy(quatosData.craftId, att, strlen(att));
 
-		att = l1ToolFindAttr(atts, "config");
+		att = quatosToolFindAttr(atts, "config");
 		if (!att) {
-			fprintf(stderr, "l1Tool: craft '%s' missing config type\n", l1Data.craftId);
+			fprintf(stderr, "quatosTool: craft '%s' missing config type\n", quatosData.craftId);
 		}
 		else {
-			l1Data.craftType = l1ToolConfigTypeByName(att);
-			if (l1Data.craftType < 0) {
-				fprintf(stderr, "l1Tool: craft '%s' invalid config type '%s'\n", l1Data.craftId, att);
+			quatosData.craftType = quatosToolConfigTypeByName(att);
+			if (quatosData.craftType < 0) {
+				fprintf(stderr, "quatosTool: craft '%s' invalid config type '%s'\n", quatosData.craftId, att);
 			}
 			else {
-				if (l1Data.craftType == CONFIG_CUSTOM) {
-					att = l1ToolFindAttr(atts, "motors");
+				if (quatosData.craftType == CONFIG_CUSTOM) {
+					att = quatosToolFindAttr(atts, "motors");
 					if (!att || !atoi(att)) {
-						fprintf(stderr, "l1Tool: craft '%s' custom type has missing/incorrect motors attribute\n", l1Data.craftId);
+						fprintf(stderr, "quatosTool: craft '%s' custom type has missing/incorrect motors attribute\n", quatosData.craftId);
 						return;
 					}
-					l1Data.n = atoi(att);
+					quatosData.n = atoi(att);
 				}
-				att = l1ToolFindAttr(atts, "configId");
+				att = quatosToolFindAttr(atts, "configId");
 				if (att)
-					l1Data.configId = atoi(att);
+					quatosData.configId = atoi(att);
 				else
-					fprintf(stderr, "l1Tool: warning, craft '%s' is missing configId\n", l1Data.craftId);
+					fprintf(stderr, "quatosTool: warning, craft '%s' is missing configId\n", quatosData.craftId);
 
 				context->validCraft = 1;
 				resetCraft(context);
@@ -319,18 +319,18 @@ void parseCraft(parseContext_t *context, const XML_Char **atts) {
 void parseGeometryMotor(parseContext_t *context, const XML_Char **atts) {
 	const XML_Char *att;
 
-	att = l1ToolFindAttr(atts, "rotation");
+	att = quatosToolFindAttr(atts, "rotation");
 	if (!att) {
-		fprintf(stderr, "l1Tool: craft '%s' missing geometry->motor rotation attribute\n", l1Data.craftId);
+		fprintf(stderr, "quatosTool: craft '%s' missing geometry->motor rotation attribute\n", quatosData.craftId);
 	}
 	else {
-		l1Data.propDir(0, context->n) = atoi(att);
+		quatosData.propDir(0, context->n) = atoi(att);
 
-		att = l1ToolFindAttr(atts, "port");
+		att = quatosToolFindAttr(atts, "port");
 		if (!att || !atoi(att))
-			fprintf(stderr, "l1Tool: craft '%s' has missing/incorrect geometry->motor port attribute\n", l1Data.craftId);
+			fprintf(stderr, "quatosTool: craft '%s' has missing/incorrect geometry->motor port attribute\n", quatosData.craftId);
 		else
-			l1Data.ports(0, context->n) = atoi(att);
+			quatosData.ports(0, context->n) = atoi(att);
 	}
 }
 
@@ -338,7 +338,7 @@ void XMLCALL startElement(void *ctx, const XML_Char *name, const XML_Char **atts
 	parseContext_t *context = (parseContext_t *)ctx;
 	int elementId;
 
-	elementId = l1ToolElementIdByName(name);
+	elementId = quatosToolElementIdByName(name);
 
 	if (elementId >= 0 && context->level < (MAX_DEPTH-1)) {
 		context->elementIds[++context->level] = elementId;
@@ -411,7 +411,7 @@ void XMLCALL endElement(void *ctx, const XML_Char *name __attribute__((__unused_
 			break;
 		case ELEMENT_PORT:
 			if (context->validCraft) {
-				l1Data.ports(0, context->n) = atoi(context->value);
+				quatosData.ports(0, context->n) = atoi(context->value);
 				context->n++;
 			}
 			break;
@@ -424,12 +424,12 @@ void XMLCALL endElement(void *ctx, const XML_Char *name __attribute__((__unused_
 		case ELEMENT_MOTOR:
 			if (context->validCraft) {
 				if (context->elementIds[context->level-1] == ELEMENT_MASS)
-					l1Data.massMot = atof(context->value);
+					quatosData.massMot = atof(context->value);
 				else if (context->elementIds[context->level-1] == ELEMENT_DISTANCE)
-					l1Data.distMot = atof(context->value);
+					quatosData.distMot = atof(context->value);
 				else if (context->elementIds[context->level-1] == ELEMENT_GEOMETRY) {
-					l1Data.frameX(context->n) = atof(std::strtok(context->value, ","));
-					l1Data.frameY(context->n) = atof(std::strtok(NULL, ","));
+					quatosData.frameX(context->n) = atof(std::strtok(context->value, ","));
+					quatosData.frameY(context->n) = atof(std::strtok(NULL, ","));
 					context->n++;
 				}
 			}
@@ -437,20 +437,20 @@ void XMLCALL endElement(void *ctx, const XML_Char *name __attribute__((__unused_
 		case ELEMENT_ARM:
 			if (context->validCraft) {
 				if (context->elementIds[context->level-1] == ELEMENT_MASS)
-					l1Data.massArm = atof(context->value);
+					quatosData.massArm = atof(context->value);
 			}
 			break;
 		case ELEMENT_ESC:
 			if (context->validCraft) {
 				if (context->elementIds[context->level-1] == ELEMENT_MASS)
-					l1Data.massEsc = atof(context->value);
+					quatosData.massEsc = atof(context->value);
 				else if (context->elementIds[context->level-1] == ELEMENT_DISTANCE)
-					l1Data.distEsc = atof(context->value);
+					quatosData.distEsc = atof(context->value);
 			}
 			break;
 		case ELEMENT_CUBE:
 			if (context->validCraft) {
-				l1Data.massObjects(context->n) = atof(context->value);
+				quatosData.massObjects(context->n) = atof(context->value);
 				context->n++;
 			}
 			break;
@@ -459,14 +459,14 @@ void XMLCALL endElement(void *ctx, const XML_Char *name __attribute__((__unused_
 	context->level--;
 }
 
-void l1ToolUsage(void) {
-    fprintf(stderr, "\nusage: l1Tool	[-h | --help] [-c | --craft-id <craft_id>]\n");
+void quatosToolUsage(void) {
+    fprintf(stderr, "\nusage: quatosTool	[-h | --help] [-c | --craft-id <craft_id>]\n");
     fprintf(stderr, "		[-p | --pid] [-m | --mix] [-o | --ouput <output_file>] <xml_file>\n\n");
     fprintf(stderr, "   using -m (output .mix file type for QGC) also implies -p\n");
     fprintf(stderr, "   using -o without an argument will create an output file named <craft_id>\n");
 }
 
-unsigned int l1ToolOptions(int argc, char **argv) {
+unsigned int quatosToolOptions(int argc, char **argv) {
         int ch;
 	char fname[256]; // output file name
 
@@ -485,7 +485,7 @@ unsigned int l1ToolOptions(int argc, char **argv) {
 	while ((ch = getopt_long(argc, argv, "hpmo::c:", longopts, NULL)) != -1)
                 switch (ch) {
                 case 'h':
-                        l1ToolUsage();
+                        quatosToolUsage();
                         exit(0);
                         break;
 		case 'p':
@@ -496,8 +496,8 @@ unsigned int l1ToolOptions(int argc, char **argv) {
 			outputPID = 1;
 			break;
 		case 'o':
-			if (optarg == NULL && l1Data.craftId) {
-				strncpy(fname, l1Data.craftId, 250);
+			if (optarg == NULL && quatosData.craftId) {
+				strncpy(fname, quatosData.craftId, 250);
 				if (outputMIXfile)
 					strcat(fname, ".mix");
 				else
@@ -505,34 +505,34 @@ unsigned int l1ToolOptions(int argc, char **argv) {
 			} else if (optarg != NULL)
 				strcpy(fname, optarg);
 			else {
-				fprintf(stderr, "l1Tool: cannot determine output file name\n");
+				fprintf(stderr, "quatosTool: cannot determine output file name\n");
 				exit(0);
 			}
 
 			outFP = fopen(fname, "w");
 			if (outFP == NULL) {
-				fprintf(stderr, "l1Tool: cannot open output file '%s'\n", optarg);
+				fprintf(stderr, "quatosTool: cannot open output file '%s'\n", optarg);
 				exit(0);
 			}
 			break;
                 case 'c':
-                        strncpy(l1Data.craftId, optarg, sizeof(l1Data.craftId));
+                        strncpy(quatosData.craftId, optarg, sizeof(quatosData.craftId));
                         break;
                 default:
-                        l1ToolUsage();
+                        quatosToolUsage();
                         return 0;
         }
 
         return 1;
 }
 
-int l1ToolReadXML(FILE *fp) {
+int quatosToolReadXML(FILE *fp) {
 	XML_Parser parser;
 	parseContext_t context;
 	char c;
 
 	if (!(parser = XML_ParserCreate(NULL))) {
-		fprintf(stderr, "l1Tool: cannot create XML parser, aborting\n");
+		fprintf(stderr, "quatosTool: cannot create XML parser, aborting\n");
 		return -1;
 	}
 
@@ -559,7 +559,7 @@ typedef struct {
 	double dimX, dimY, dimZ;
 } object_t;
 
-void l1ToolJCalc(Matrix3d &J, double mass, double x, double y, double z) {
+void quatosToolJCalc(Matrix3d &J, double mass, double x, double y, double z) {
 	Matrix3d S;
 
 	S <<	0,	-z,	y,
@@ -576,7 +576,7 @@ void l1ToolJCalc(Matrix3d &J, double mass, double x, double y, double z) {
 }
 
 // only cuboid so far
-void l1ToolShapeCalc(Matrix3d &J, object_t *obj) {
+void quatosToolShapeCalc(Matrix3d &J, object_t *obj) {
 	double mass;
 	int x, y, z;
 	int i, j, k;
@@ -592,13 +592,13 @@ void l1ToolShapeCalc(Matrix3d &J, object_t *obj) {
 	for (i = 0; i < x; i++)
 		for (j = 0; j < y; j++)
 			for (k = 0; k < z; k++)
-				l1ToolJCalc(J, mass,
-					obj->x - l1Data.offsetCG(0) - obj->dimX/2.0 + (double)i/1000.0,
-					obj->y - l1Data.offsetCG(1) - obj->dimX/2.0 + (double)j/1000.0,
-					obj->z - l1Data.offsetCG(2) - obj->dimX/2.0 + (double)k/1000.0);
+				quatosToolJCalc(J, mass,
+					obj->x - quatosData.offsetCG(0) - obj->dimX/2.0 + (double)i/1000.0,
+					obj->y - quatosData.offsetCG(1) - obj->dimX/2.0 + (double)j/1000.0,
+					obj->z - quatosData.offsetCG(2) - obj->dimX/2.0 + (double)k/1000.0);
 }
 
-void l1ToolObjCalc() {
+void quatosToolObjCalc() {
 	object_t objs[256];
 	int o;
 	int i;
@@ -606,204 +606,204 @@ void l1ToolObjCalc() {
 	memset(objs, 0, sizeof(objs));
 
 	o = 0;
-	for (i = 0; i < l1Data.n; i++) {
+	for (i = 0; i < quatosData.n; i++) {
 		// Motor
-		objs[o].mass = l1Data.massMot;
-		objs[o].x = l1Data.frameX(i) * l1Data.distMot;
-		objs[o].y = l1Data.frameY(i) * l1Data.distMot;
+		objs[o].mass = quatosData.massMot;
+		objs[o].x = quatosData.frameX(i) * quatosData.distMot;
+		objs[o].y = quatosData.frameY(i) * quatosData.distMot;
 		objs[o].z = 0.0;
 		o++;
 
 		// ESC
-		objs[o].mass = l1Data.massEsc;
-		objs[o].x = l1Data.frameX(i) * l1Data.distEsc;
-		objs[o].y = l1Data.frameY(i) * l1Data.distEsc;
+		objs[o].mass = quatosData.massEsc;
+		objs[o].x = quatosData.frameX(i) * quatosData.distEsc;
+		objs[o].y = quatosData.frameY(i) * quatosData.distEsc;
 		objs[o].z = 0.0;
 		o++;
 
 		// ARM
-		objs[o].mass = l1Data.massArm;
-		objs[o].x = l1Data.frameX(i) * l1Data.distMot / 2.0;
-		objs[o].y = l1Data.frameY(i) * l1Data.distMot / 2.0;
+		objs[o].mass = quatosData.massArm;
+		objs[o].x = quatosData.frameX(i) * quatosData.distMot / 2.0;
+		objs[o].y = quatosData.frameY(i) * quatosData.distMot / 2.0;
 		objs[o].z = 0.0;
 		o++;
 	}
 
-	for (i = 0; i < l1Data.massObjects.size(); i++) {
-		objs[o].mass = l1Data.massObjects(i);
-		objs[o].x = l1Data.objectsOffset(i, 0);
-		objs[o].y = l1Data.objectsOffset(i, 1);
-		objs[o].z = l1Data.objectsOffset(i, 2);
+	for (i = 0; i < quatosData.massObjects.size(); i++) {
+		objs[o].mass = quatosData.massObjects(i);
+		objs[o].x = quatosData.objectsOffset(i, 0);
+		objs[o].y = quatosData.objectsOffset(i, 1);
+		objs[o].z = quatosData.objectsOffset(i, 2);
 
-		objs[o].dimX = l1Data.objectsDim(i, 0);
-		objs[o].dimY = l1Data.objectsDim(i, 1);
-		objs[o].dimZ = l1Data.objectsDim(i, 2);
+		objs[o].dimX = quatosData.objectsDim(i, 0);
+		objs[o].dimY = quatosData.objectsDim(i, 1);
+		objs[o].dimZ = quatosData.objectsDim(i, 2);
 		o++;
 	}
 
-	l1Data.totalMass = 0.0;
-	l1Data.offsetCG.setZero();
+	quatosData.totalMass = 0.0;
+	quatosData.offsetCG.setZero();
 	for (i = 0; i < o; i++) {
 		objs[i].mass /= 1000;			// g => Kg
-		l1Data.offsetCG(0) += objs[i].mass * objs[i].x;
-		l1Data.offsetCG(1) += objs[i].mass * objs[i].y;
-		l1Data.offsetCG(2) += objs[i].mass * objs[i].z;
+		quatosData.offsetCG(0) += objs[i].mass * objs[i].x;
+		quatosData.offsetCG(1) += objs[i].mass * objs[i].y;
+		quatosData.offsetCG(2) += objs[i].mass * objs[i].z;
 
-		l1Data.totalMass += objs[i].mass;
+		quatosData.totalMass += objs[i].mass;
 //printf("[%d] %f\n", i, objs[i].mass);
 	}
-	l1Data.offsetCG /= l1Data.totalMass;
+	quatosData.offsetCG /= quatosData.totalMass;
 
 	if (!outputMIXfile) {
-		printf("MASS [%d objs] = %f Kg\n", o, l1Data.totalMass);
-		printf("CG Offset = %f, %f, %f\n", l1Data.offsetCG(0), l1Data.offsetCG(1), l1Data.offsetCG(2));
+		printf("MASS [%d objs] = %f Kg\n", o, quatosData.totalMass);
+		printf("CG Offset = %f, %f, %f\n", quatosData.offsetCG(0), quatosData.offsetCG(1), quatosData.offsetCG(2));
 	}
 
 	// calculate J matrix
-	l1Data.J.setZero();
+	quatosData.J.setZero();
 	for (i = 0; i < o; i++)
 		if (objs[i].dimX != 0.0 && objs[i].dimY != 0.0 && objs[i].dimZ != 0.0)
 			//  dimensioned shapes
-			l1ToolShapeCalc(l1Data.J, &objs[i]);
+			quatosToolShapeCalc(quatosData.J, &objs[i]);
 		else
 			// point masses
-			l1ToolJCalc(l1Data.J, objs[i].mass, objs[i].x - l1Data.offsetCG(0), objs[i].y - l1Data.offsetCG(1), objs[i].z - l1Data.offsetCG(2));
+			quatosToolJCalc(quatosData.J, objs[i].mass, objs[i].x - quatosData.offsetCG(0), objs[i].y - quatosData.offsetCG(1), objs[i].z - quatosData.offsetCG(2));
 }
 
-void l1ToolCalc(void) {
+void quatosToolCalc(void) {
 //	VectorXd frameX, frameY;
 	MatrixXd A;
 	MatrixXd B;
 	float t, p, r, y;
 	int i, j;
 
-	l1Data.motorX.resize(1, l1Data.n);
-	l1Data.motorY.resize(1, l1Data.n);
+	quatosData.motorX.resize(1, quatosData.n);
+	quatosData.motorY.resize(1, quatosData.n);
 
-	//frameX.resize(l1Data.n);
-	//frameY.resize(l1Data.n);
+	//frameX.resize(quatosData.n);
+	//frameY.resize(quatosData.n);
 
 	// calculate x/y coordinates for each motor
-	switch (l1Data.craftType) {
+	switch (quatosData.craftType) {
 		case CONFIG_QUAD_PLUS:
-			l1Data.frameX << 0.0, 1.0, 0.0, -1.0;
-			l1Data.frameY << 1.0, 0.0, -1.0, 0.0;
+			quatosData.frameX << 0.0, 1.0, 0.0, -1.0;
+			quatosData.frameY << 1.0, 0.0, -1.0, 0.0;
 			break;
 		case CONFIG_QUAD_X:
-			l1Data.frameX << -1.0, 1.0, 1.0, -1.0; // -sqrt(2.0)/2.0, sqrt(2.0)/2.0, sqrt(2.0)/2.0, -sqrt(2.0)/2.0;
-			l1Data.frameY << 1.0, 1.0, -1.0, -1.0; // sqrt(2.0)/2.0, sqrt(2.0)/2.0, -sqrt(2.0)/2.0, -sqrt(2.0)/2.0;
+			quatosData.frameX << -1.0, 1.0, 1.0, -1.0; // -sqrt(2.0)/2.0, sqrt(2.0)/2.0, sqrt(2.0)/2.0, -sqrt(2.0)/2.0;
+			quatosData.frameY << 1.0, 1.0, -1.0, -1.0; // sqrt(2.0)/2.0, sqrt(2.0)/2.0, -sqrt(2.0)/2.0, -sqrt(2.0)/2.0;
 			break;
 		case CONFIG_HEX_PLUS:
-			l1Data.frameX << 0.0,	sqrt(3.0)/2.0,	sqrt(3.0)/2.0,	0.0,	-sqrt(3.0)/2.0,	-sqrt(3.0)/2.0;
-			l1Data.frameY << 1.0, 0.5, -0.5, -1.0, -0.5, 0.5;
+			quatosData.frameX << 0.0,	sqrt(3.0)/2.0,	sqrt(3.0)/2.0,	0.0,	-sqrt(3.0)/2.0,	-sqrt(3.0)/2.0;
+			quatosData.frameY << 1.0, 0.5, -0.5, -1.0, -0.5, 0.5;
 			break;
 		case CONFIG_HEX_X:
-			l1Data.frameX << -0.5,	0.5,	1.0,	0.5,	-0.5,	-1.0;
-			l1Data.frameY << sqrt(3.0)/2.0,	sqrt(3.0)/2.0,	0.0,	-sqrt(3.0)/2.0,	-sqrt(3.0)/2.0,	0.0;
+			quatosData.frameX << -0.5,	0.5,	1.0,	0.5,	-0.5,	-1.0;
+			quatosData.frameY << sqrt(3.0)/2.0,	sqrt(3.0)/2.0,	0.0,	-sqrt(3.0)/2.0,	-sqrt(3.0)/2.0,	0.0;
 			break;
 		case CONFIG_OCTO_PLUS:
-			l1Data.frameX << 0,	cosf(315 *DEG_TO_RAD),	1,	cosf(45 *DEG_TO_RAD),	0,	cosf(135 *DEG_TO_RAD),	-1,	cosf(225 *DEG_TO_RAD);
-			l1Data.frameY << 1,	cosf(45 *DEG_TO_RAD),	0,	cosf(135 *DEG_TO_RAD),	-1,	cosf(225 *DEG_TO_RAD),	0,	cosf(315 *DEG_TO_RAD);
+			quatosData.frameX << 0,	cosf(315 *DEG_TO_RAD),	1,	cosf(45 *DEG_TO_RAD),	0,	cosf(135 *DEG_TO_RAD),	-1,	cosf(225 *DEG_TO_RAD);
+			quatosData.frameY << 1,	cosf(45 *DEG_TO_RAD),	0,	cosf(135 *DEG_TO_RAD),	-1,	cosf(225 *DEG_TO_RAD),	0,	cosf(315 *DEG_TO_RAD);
 			break;
 		case CONFIG_OCTO_X:
-			l1Data.frameX << cosf(247.5 *DEG_TO_RAD),	cosf(292.5 *DEG_TO_RAD),	cosf(337.5 *DEG_TO_RAD),	cosf(22.5 *DEG_TO_RAD),
+			quatosData.frameX << cosf(247.5 *DEG_TO_RAD),	cosf(292.5 *DEG_TO_RAD),	cosf(337.5 *DEG_TO_RAD),	cosf(22.5 *DEG_TO_RAD),
 								cosf(67.5 *DEG_TO_RAD),		cosf(112.5 *DEG_TO_RAD),	cosf(157.5 *DEG_TO_RAD),	cosf(202.5 *DEG_TO_RAD);
-			l1Data.frameY << cosf(337.5 *DEG_TO_RAD),	cosf(22.5 *DEG_TO_RAD),		cosf(67.5 *DEG_TO_RAD),		cosf(112.5 *DEG_TO_RAD),
+			quatosData.frameY << cosf(337.5 *DEG_TO_RAD),	cosf(22.5 *DEG_TO_RAD),		cosf(67.5 *DEG_TO_RAD),		cosf(112.5 *DEG_TO_RAD),
 								cosf(157.5 *DEG_TO_RAD),	cosf(202.5 *DEG_TO_RAD),	cosf(247.5 *DEG_TO_RAD),	cosf(292.5 *DEG_TO_RAD);
 			break;
 	}
 
 	// calc GG offset & J matrix
-	l1ToolObjCalc();
+	quatosToolObjCalc();
 
-	l1Data.motorX = (l1Data.frameX.transpose() * l1Data.distMot) * -1.0;
-	l1Data.motorY = (l1Data.frameY.transpose() * l1Data.distMot);
+	quatosData.motorX = (quatosData.frameX.transpose() * quatosData.distMot) * -1.0;
+	quatosData.motorY = (quatosData.frameY.transpose() * quatosData.distMot);
 
 	// adjust for CG offset
-	l1Data.motorX -= VectorXd::Ones(l1Data.n) * l1Data.offsetCG(0);
-	l1Data.motorY -= VectorXd::Ones(l1Data.n) * l1Data.offsetCG(1);
+	quatosData.motorX -= VectorXd::Ones(quatosData.n) * quatosData.offsetCG(0);
+	quatosData.motorY -= VectorXd::Ones(quatosData.n) * quatosData.offsetCG(1);
 
-	l1Data.propDir *= -1.0;								// our sense of rotation is counter intuitive
+	quatosData.propDir *= -1.0;								// our sense of rotation is counter intuitive
 
-	A.resize(3, l1Data.n);
+	A.resize(3, quatosData.n);
 	B.resize(3, 1);
 
 	// Roll
-	A <<	l1Data.motorY,
-		MatrixXd::Ones(1, l1Data.n),
-		l1Data.motorX;
+	A <<	quatosData.motorY,
+		MatrixXd::Ones(1, quatosData.n),
+		quatosData.motorX;
 	B <<	0,
 		0,
 		1;
 
-	pseudoInverse(A, l1Data.ROLL);
-	l1Data.ROLL *= B;
+	pseudoInverse(A, quatosData.ROLL);
+	quatosData.ROLL *= B;
 
 	// Pitch
-	A <<	l1Data.motorX,
-		MatrixXd::Ones(1, l1Data.n),
-		l1Data.motorY;
+	A <<	quatosData.motorX,
+		MatrixXd::Ones(1, quatosData.n),
+		quatosData.motorY;
 	B <<	0,
 		0,
 		1;
 
-	pseudoInverse(A, l1Data.PITCH);
-	l1Data.PITCH *= B;
+	pseudoInverse(A, quatosData.PITCH);
+	quatosData.PITCH *= B;
 
 	// Yaw
-	A <<	l1Data.motorX,
-		l1Data.motorY,
-		l1Data.propDir;
+	A <<	quatosData.motorX,
+		quatosData.motorY,
+		quatosData.propDir;
 	B <<	0,
 		0,
 		1;
 
-	pseudoInverse(A, l1Data.YAW);
-	l1Data.YAW *= B;
+	pseudoInverse(A, quatosData.YAW);
+	quatosData.YAW *= B;
 
 	// Throttle
-	A.resize(4, l1Data.n);
+	A.resize(4, quatosData.n);
 	B.resize(4, 1);
 
-	A <<	l1Data.motorX,
-		l1Data.motorY,
-		l1Data.propDir,
-		MatrixXd::Ones(1, l1Data.n);
+	A <<	quatosData.motorX,
+		quatosData.motorY,
+		quatosData.propDir,
+		MatrixXd::Ones(1, quatosData.n);
 	B <<	0,
 		0,
 		0,
-		l1Data.n;
+		quatosData.n;
 
-	pseudoInverse(A, l1Data.THROT);
-	l1Data.THROT *= B;
+	pseudoInverse(A, quatosData.THROT);
+	quatosData.THROT *= B;
 
 
 	// PD
-	l1Data.PD.resize(l1Data.n, 3);
-	l1Data.PD <<	l1Data.ROLL,
-			l1Data.PITCH,
-			l1Data.YAW,
+	quatosData.PD.resize(quatosData.n, 3);
+	quatosData.PD <<	quatosData.ROLL,
+			quatosData.PITCH,
+			quatosData.YAW,
 
 	// M
-	l1Data.M.resize(3, l1Data.n);
-	l1Data.M <<	l1Data.motorX,
-			l1Data.motorY,
-			l1Data.propDir;
+	quatosData.M.resize(3, quatosData.n);
+	quatosData.M <<	quatosData.motorX,
+			quatosData.motorY,
+			quatosData.propDir;
 
 	// Mt
-	l1Data.Mt.resize(l1Data.n, 4);
-	l1Data.Mt << l1Data.THROT, l1Data.PD * (l1Data.M*l1Data.PD).inverse();
+	quatosData.Mt.resize(quatosData.n, 4);
+	quatosData.Mt << quatosData.THROT, quatosData.PD * (quatosData.M*quatosData.PD).inverse();
 
 	// PID
-	l1Data.PID.setZero(4, l1Data.n);
-	l1Data.PID <<	l1Data.Mt.col(0).transpose() / l1Data.Mt.col(0).maxCoeff(),
-			l1Data.Mt.col(2).transpose() / l1Data.Mt.col(2).maxCoeff(),
-			l1Data.Mt.col(1).transpose() / l1Data.Mt.col(1).maxCoeff(),
-			l1Data.Mt.col(3).transpose() * l1Data.n;
-	l1Data.PID = l1Data.PID.transpose().eval() * 100.0;
+	quatosData.PID.setZero(4, quatosData.n);
+	quatosData.PID <<	quatosData.Mt.col(0).transpose() / quatosData.Mt.col(0).maxCoeff(),
+			quatosData.Mt.col(2).transpose() / quatosData.Mt.col(2).maxCoeff(),
+			quatosData.Mt.col(1).transpose() / quatosData.Mt.col(1).maxCoeff(),
+			quatosData.Mt.col(3).transpose() * quatosData.n;
+	quatosData.PID = quatosData.PID.transpose().eval() * 100.0;
 
 	if (outputPID) {
-		displayMatrix("PID", l1Data.PID);
+		displayMatrix("PID", quatosData.PID);
         if (outputMIXfile) { // output .mix file for QGC (.ini file format)
             float val;
 
@@ -825,9 +825,9 @@ void l1ToolCalc(void) {
                 }
                 for (i = 1; i <= NUM_PORTS; i++) {
                     val = 0.0f;
-                    j = l1ToolFindPort(i);
+                    j = quatosToolFindPort(i);
                     if (j >= 0)
-                        val = l1Data.PID(j, ii);
+                        val = quatosData.PID(j, ii);
 
                     fprintf(outFP, "Motor%d=%g\n", i, round(val * 10000)/10000); // %g prints no trailing decimals when they're zero, unlike %f
                 }
@@ -840,12 +840,12 @@ void l1ToolCalc(void) {
 			r = 0.0;
 			y = 0.0;
 
-			j = l1ToolFindPort(i);
+			j = quatosToolFindPort(i);
 			if (j >= 0) {
-				t = l1Data.PID(j, 0);
-				p = l1Data.PID(j, 1);
-				r = l1Data.PID(j, 2);
-				y = l1Data.PID(j, 3);
+				t = quatosData.PID(j, 0);
+				p = quatosData.PID(j, 1);
+				r = quatosData.PID(j, 2);
+				y = quatosData.PID(j, 3);
 			}
 			fprintf(outFP, "#define DEFAULT_MOT_PWRD_%02d_T\t%+f\n", i, t);
 			fprintf(outFP, "#define DEFAULT_MOT_PWRD_%02d_P\t%+f\n", i, p);
@@ -856,19 +856,19 @@ void l1ToolCalc(void) {
 	}
 	// otherwise show L1 results
 	else {
-		displayMatrix("Mt", l1Data.Mt);
+		displayMatrix("Mt", quatosData.Mt);
 		for (i = 1; i <= NUM_PORTS; i++) {
 			t = 0.0;
 			p = 0.0;
 			r = 0.0;
 			y = 0.0;
 
-			j = l1ToolFindPort(i);
+			j = quatosToolFindPort(i);
 			if (j >= 0) {
-				t = l1Data.Mt(j, 0);
-				r = l1Data.Mt(j, 1);
-				p = l1Data.Mt(j, 2);
-				y = l1Data.Mt(j, 3);
+				t = quatosData.Mt(j, 0);
+				r = quatosData.Mt(j, 1);
+				p = quatosData.Mt(j, 2);
+				y = quatosData.Mt(j, 3);
 			}
 			fprintf(outFP, "#define DEFAULT_MOT_PWRD_%02d_T\t%+f\n", i, t);
 			fprintf(outFP, "#define DEFAULT_MOT_PWRD_%02d_P\t%+f\n", i, p);
@@ -876,34 +876,34 @@ void l1ToolCalc(void) {
 			fprintf(outFP, "#define DEFAULT_MOT_PWRD_%02d_Y\t%+f\n", i, y);
 		}
 
-		displayMatrix("M", l1Data.M);
+		displayMatrix("M", quatosData.M);
 		for (i = 1; i <= NUM_PORTS; i++) {
 			r = 0.0;
 			p = 0.0;
 			y = 0.0;
 
-			j = l1ToolFindPort(i);
+			j = quatosToolFindPort(i);
 			if (j >= 0) {
-				r = l1Data.M(0, j);
-				p = l1Data.M(1, j);
-				y = l1Data.M(2, j);
+				r = quatosData.M(0, j);
+				p = quatosData.M(1, j);
+				y = quatosData.M(2, j);
 			}
 			fprintf(outFP, "#define DEFAULT_L1_ATT_MM_R%02d\t%+f\n", i, r);
 			fprintf(outFP, "#define DEFAULT_L1_ATT_MM_P%02d\t%+f\n", i, p);
 			fprintf(outFP, "#define DEFAULT_L1_ATT_MM_Y%02d\t%+f\n", i, y);
 		}
 
-		displayMatrix("J", l1Data.J);
-		fprintf(outFP, "#define DEFAULT_L1_ATT_J_ROLL\t%g\n", l1Data.J(0, 0));
-		fprintf(outFP, "#define DEFAULT_L1_ATT_J_PITCH\t%g\n", l1Data.J(1, 1));
-		fprintf(outFP, "#define DEFAULT_L1_ATT_J_YAW\t%g\n", l1Data.J(2, 2));
+		displayMatrix("J", quatosData.J);
+		fprintf(outFP, "#define DEFAULT_L1_ATT_J_ROLL\t%g\n", quatosData.J(0, 0));
+		fprintf(outFP, "#define DEFAULT_L1_ATT_J_PITCH\t%g\n", quatosData.J(1, 1));
+		fprintf(outFP, "#define DEFAULT_L1_ATT_J_YAW\t%g\n", quatosData.J(2, 2));
 	}
 }
 
 int main(int argc, char **argv) {
 	FILE *fp;
 
-        if (!l1ToolOptions(argc, argv)) {
+        if (!quatosToolOptions(argc, argv)) {
                 fprintf(stderr, "Init failed, aborting\n");
                 return 0;
         }
@@ -911,38 +911,38 @@ int main(int argc, char **argv) {
         argv += optind;
 
 	if (argc < 1) {
-		fprintf(stderr, "l1Tool: requires xml file argument, aborting\n");
+		fprintf(stderr, "quatosTool: requires xml file argument, aborting\n");
 		return -1;
 	}
 	if (!(fp = fopen(argv[0], "r"))) {
-		fprintf(stderr, "l1Tool: cannot open XML file '%s', aborting\n", argv[1]);
+		fprintf(stderr, "quatosTool: cannot open XML file '%s', aborting\n", argv[1]);
 		return -1;
 	}
 
-	if (l1ToolReadXML(fp) < 0)
+	if (quatosToolReadXML(fp) < 0)
 		return -1;
 
     if (outputMIXfile) {
         fprintf(outFP, "[META]\n");
-        fprintf(outFP, "ConfigId=%d\n", l1Data.configId);
+        fprintf(outFP, "ConfigId=%d\n", quatosData.configId);
     }
 
-	fprintf(outFP, "Craft=%s\n", l1Data.craftId);
-	fprintf(outFP, "Motors=%d\n", l1Data.n);
+	fprintf(outFP, "Craft=%s\n", quatosData.craftId);
+	fprintf(outFP, "Motors=%d\n", quatosData.n);
 /*
-	std::cout << "l1Data.ports: " << l1Data.ports << std::endl;
-	std::cout << "l1Data.propDir: " << l1Data.propDir << std::endl;
-	std::cout << "l1Data.distMot: " << l1Data.distMot << std::endl;
-	std::cout << "l1Data.distEsc: " << l1Data.distEsc << std::endl;
-	std::cout << "l1Data.massMot: " << l1Data.massMot << std::endl;
-	std::cout << "l1Data.massEsc: " << l1Data.massEsc << std::endl;
-	std::cout << "l1Data.massArm: " << l1Data.massArm << std::endl;
-	std::cout << "l1Data.massObjects: " << l1Data.massObjects << std::endl;
-	std::cout << "l1Data.objectsDim: " << l1Data.objectsDim << std::endl;
-	std::cout << "l1Data.objectsOffset: " << l1Data.objectsOffset << std::endl;
+	std::cout << "quatosData.ports: " << quatosData.ports << std::endl;
+	std::cout << "quatosData.propDir: " << quatosData.propDir << std::endl;
+	std::cout << "quatosData.distMot: " << quatosData.distMot << std::endl;
+	std::cout << "quatosData.distEsc: " << quatosData.distEsc << std::endl;
+	std::cout << "quatosData.massMot: " << quatosData.massMot << std::endl;
+	std::cout << "quatosData.massEsc: " << quatosData.massEsc << std::endl;
+	std::cout << "quatosData.massArm: " << quatosData.massArm << std::endl;
+	std::cout << "quatosData.massObjects: " << quatosData.massObjects << std::endl;
+	std::cout << "quatosData.objectsDim: " << quatosData.objectsDim << std::endl;
+	std::cout << "quatosData.objectsOffset: " << quatosData.objectsOffset << std::endl;
 */
 
-	l1ToolCalc();
+	quatosToolCalc();
 
 	return 0;
 }

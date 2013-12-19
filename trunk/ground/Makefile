@@ -12,7 +12,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with AutoQuad.  If not, see <http://www.gnu.org/licenses/>.
 #
-#    Copyright © 2011, 2012  Bill Nesbitt
+#    Copyright © 2011, 2012, 2013  Bill Nesbitt
 
 # Include user-specific settings file, if any, in regular Makefile format.
 # This file can set any default variable values you wish to override (all defaults are listed below).
@@ -47,9 +47,9 @@ ALL_CFLAGS = $(CFLAGS)
 
 # Targets
 
-all: loader telemetryDump logDump batCal l1Tool
+all: loader telemetryDump logDump batCal quatosTool
 
-all-win: logDump-win l1Tool-win
+all-win: logDump-win quatosTool-win
 
 loader: $(BUILD_PATH)/loader.o $(BUILD_PATH)/serial.o $(BUILD_PATH)/stmbootloader.o
 	$(CC) -o $(BUILD_PATH)/loader $(ALL_CFLAGS) $(BUILD_PATH)/loader.o $(BUILD_PATH)/serial.o $(BUILD_PATH)/stmbootloader.o
@@ -66,11 +66,11 @@ logDump-win: $(BUILD_PATH)/logDump-win.o $(BUILD_PATH)/logger.o $(BUILD_PATH)/lo
 batCal: $(BUILD_PATH)/batCal.o $(BUILD_PATH)/logger.o
 	$(CC) -o batCal $(ALL_CFLAGS) $(BUILD_PATH)/batCal.o $(BUILD_PATH)/logger.o -L$(LIBPATH) -l$(PLPLOT_LIB)
 
-l1Tool: $(BUILD_PATH)/l1Tool.o
-	$(CC) -o $(BUILD_PATH)/l1Tool $(ALL_CFLAGS) $(BUILD_PATH)/l1Tool.o -l$(EXPAT_LIB)
+quatosTool: $(BUILD_PATH)/quatosTool.o
+	$(CC) -o $(BUILD_PATH)/quatosTool $(ALL_CFLAGS) $(BUILD_PATH)/quatosTool.o -l$(EXPAT_LIB)
 
-l1Tool-win: $(BUILD_PATH)/l1Tool-win.o
-	$(CC) -o $(BUILD_PATH)/l1Tool.exe $(ALL_CFLAGS) $(BUILD_PATH)/l1Tool.o -L$(EXPAT) -l$(EXPAT_LIB)
+quatosTool-win: $(BUILD_PATH)/quatosTool-win.o
+	$(CC) -o $(BUILD_PATH)/quatosTool.exe $(ALL_CFLAGS) $(BUILD_PATH)/quatosTool.o -L$(EXPAT) -l$(EXPAT_LIB)
 
 
 
@@ -95,11 +95,11 @@ $(BUILD_PATH)/logDump-win.o: logDump.c logDump_templates.h logDump.h logger.h lo
 $(BUILD_PATH)/batCal.o: batCal.cc
 	$(CC) -c $(ALL_CFLAGS) batCal.cc -o $@ -I$(INCPATH) -I$(EIGEN)
 
-$(BUILD_PATH)/l1Tool.o: l1Tool.cc
-	$(CC) -c $(ALL_CFLAGS) l1Tool.cc -o $@ -I$(EIGEN)
+$(BUILD_PATH)/quatosTool.o: quatosTool.cc
+	$(CC) -c $(ALL_CFLAGS) quatosTool.cc -o $@ -I$(EIGEN)
 
-$(BUILD_PATH)/l1Tool-win.o: l1Tool.cc
-	$(CC) -c -g -O2 l1Tool.cc -o $(BUILD_PATH)/l1Tool.o -I$(EXPAT)/src -I$(EIGEN)
+$(BUILD_PATH)/quatosTool-win.o: quatosTool.cc
+	$(CC) -c -g -O2 quatosTool.cc -o $(BUILD_PATH)/quatosTool.o -I$(EXPAT)/src -I$(EIGEN)
 
 $(BUILD_PATH)/logger.o: logger.c logger.h
 	$(CC) -c $(ALL_CFLAGS) logger.c -o $@
@@ -108,4 +108,4 @@ $(BUILD_PATH)/logDump_mavlink.o: logDump_mavlink.cpp logDump_mavlink.h
 	$(CC) -c $(ALL_CFLAGS) logDump_mavlink.cpp -o $@ -I$(MAVLINK)
 
 clean:
-	rm -f $(BUILD_PATH)/loader $(BUILD_PATH)/telemetryDump $(BUILD_PATH)/logDump $(BUILD_PATH)/batCal $(BUILD_PATH)/l1Tool $(BUILD_PATH)/*.o $(BUILD_PATH)/*.exe
+	rm -f $(BUILD_PATH)/loader $(BUILD_PATH)/telemetryDump $(BUILD_PATH)/logDump $(BUILD_PATH)/batCal $(BUILD_PATH)/quatosTool $(BUILD_PATH)/*.o $(BUILD_PATH)/*.exe

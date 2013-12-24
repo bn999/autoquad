@@ -26,7 +26,7 @@ using namespace Eigen;
 #define DEFAULT_DIST_ESC	0.1
 
 enum {
-	ELEMENT_L1_CONFIGURATION = 0,
+	ELEMENT_QUATOS_CONFIGURATION = 0,
 	ELEMENT_CRAFT,
 	ELEMENT_PORTS,
 	ELEMENT_PORT,
@@ -345,7 +345,7 @@ void XMLCALL startElement(void *ctx, const XML_Char *name, const XML_Char **atts
 //		printf("%d: %s\n", context->level, name);
 
 		switch (context->elementIds[context->level]) {
-			case ELEMENT_L1_CONFIGURATION:
+			case ELEMENT_QUATOS_CONFIGURATION:
 				context->validCraft = 0;
 				break;
 			case ELEMENT_CRAFT:
@@ -402,7 +402,7 @@ void XMLCALL endElement(void *ctx, const XML_Char *name __attribute__((__unused_
 	parseContext_t *context = (parseContext_t *)ctx;
 
 	switch (context->elementIds[context->level]) {
-		case ELEMENT_L1_CONFIGURATION:
+		case ELEMENT_QUATOS_CONFIGURATION:
 			break;
 		case ELEMENT_CRAFT:
 			context->validCraft = 0;
@@ -854,7 +854,7 @@ void quatosToolCalc(void) {
 		}
 	}
 	}
-	// otherwise show L1 results
+	// otherwise show results
 	else {
 		displayMatrix("Mt", quatosData.Mt);
 		for (i = 1; i <= NUM_PORTS; i++) {
@@ -888,15 +888,15 @@ void quatosToolCalc(void) {
 				p = quatosData.M(1, j);
 				y = quatosData.M(2, j);
 			}
-			fprintf(outFP, "#define DEFAULT_L1_ATT_MM_R%02d\t%+f\n", i, r);
-			fprintf(outFP, "#define DEFAULT_L1_ATT_MM_P%02d\t%+f\n", i, p);
-			fprintf(outFP, "#define DEFAULT_L1_ATT_MM_Y%02d\t%+f\n", i, y);
+			fprintf(outFP, "#define DEFAULT_QUATOS_MM_R%02d\t%+f\n", i, r);
+			fprintf(outFP, "#define DEFAULT_QUATOS_MM_P%02d\t%+f\n", i, p);
+			fprintf(outFP, "#define DEFAULT_QUATOS_MM_Y%02d\t%+f\n", i, y);
 		}
 
 		displayMatrix("J", quatosData.J);
-		fprintf(outFP, "#define DEFAULT_L1_ATT_J_ROLL\t%g\n", quatosData.J(0, 0));
-		fprintf(outFP, "#define DEFAULT_L1_ATT_J_PITCH\t%g\n", quatosData.J(1, 1));
-		fprintf(outFP, "#define DEFAULT_L1_ATT_J_YAW\t%g\n", quatosData.J(2, 2));
+		fprintf(outFP, "#define DEFAULT_QUATOS_J_ROLL\t%g\n", quatosData.J(0, 0));
+		fprintf(outFP, "#define DEFAULT_QUATOS_J_PITCH\t%g\n", quatosData.J(1, 1));
+		fprintf(outFP, "#define DEFAULT_QUATOS_J_YAW\t%g\n", quatosData.J(2, 2));
 	}
 }
 

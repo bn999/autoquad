@@ -16,7 +16,7 @@
 	For generating predefined PID-type mixes, distance and mass do not need to be specified (see example.xml).
 
 -->
-<l1_configuration>
+<quatos_configuration>
 
 	<!-- quads -->
 	<craft id="quad_plus" config="custom" motors="4" configId="4">
@@ -199,4 +199,4 @@
 	<!-- Use configId 50-59 for anything that doesn't fit above. -->
 	<!-- Use configId 60-64 for custom types. -->
 	
-</l1_configuration>
+</quatos_configuration>

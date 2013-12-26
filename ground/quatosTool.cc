@@ -796,14 +796,15 @@ void quatosToolCalc(void) {
 
 	// PID
 	quatosData.PID.setZero(4, quatosData.n);
-	quatosData.PID <<	quatosData.Mt.col(0).transpose() / quatosData.Mt.col(0).maxCoeff(),
-			quatosData.Mt.col(2).transpose() / quatosData.Mt.col(2).maxCoeff(),
-			quatosData.Mt.col(1).transpose() / quatosData.Mt.col(1).maxCoeff(),
+	quatosData.PID <<	quatosData.Mt.col(0).transpose() / quatosData.Mt.col(0).cwiseAbs().maxCoeff(),
+			quatosData.Mt.col(2).transpose() / quatosData.Mt.col(2).cwiseAbs().maxCoeff(),
+			quatosData.Mt.col(1).transpose() / quatosData.Mt.col(1).cwiseAbs().maxCoeff(),
 			quatosData.Mt.col(3).transpose() * quatosData.n;
 	quatosData.PID = quatosData.PID.transpose().eval() * 100.0;
 
 	if (outputPID) {
 		displayMatrix("PID", quatosData.PID);
+
         if (outputMIXfile) { // output .mix file for QGC (.ini file format)
             float val;
 

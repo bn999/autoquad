@@ -799,7 +799,7 @@ void quatosToolCalc(void) {
 	quatosData.PID <<	quatosData.Mt.col(0).transpose() / quatosData.Mt.col(0).cwiseAbs().maxCoeff(),
 			quatosData.Mt.col(2).transpose() / quatosData.Mt.col(2).cwiseAbs().maxCoeff(),
 			quatosData.Mt.col(1).transpose() / quatosData.Mt.col(1).cwiseAbs().maxCoeff(),
-			quatosData.Mt.col(3).transpose() * quatosData.n;
+			quatosData.Mt.col(3).transpose() / quatosData.Mt.col(3).cwiseAbs().maxCoeff();
 	quatosData.PID = quatosData.PID.transpose().eval() * 100.0;
 
 	if (outputPID) {

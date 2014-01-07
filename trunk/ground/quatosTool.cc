@@ -126,7 +126,7 @@ void displayMatrix(const char *name, _Matrix_Type_ &m) {
 	for (i = 0; i < m.rows(); i++) {
 		fprintf(outFP, "\t");
 		for (j = 0; j < m.cols(); j++)
-			fprintf(outFP, "%+9.4f  ", m(i, j));
+			fprintf(outFP, "%+12.7f  ", m(i, j));
 		fprintf(outFP, "\n");
 	}
 	fprintf(outFP, "];\n");
@@ -690,8 +690,8 @@ void quatosToolCalc(void) {
 			quatosData.frameY << 1.0, 0.0, -1.0, 0.0;
 			break;
 		case CONFIG_QUAD_X:
-			quatosData.frameX << -1.0, 1.0, 1.0, -1.0; // -sqrt(2.0)/2.0, sqrt(2.0)/2.0, sqrt(2.0)/2.0, -sqrt(2.0)/2.0;
-			quatosData.frameY << 1.0, 1.0, -1.0, -1.0; // sqrt(2.0)/2.0, sqrt(2.0)/2.0, -sqrt(2.0)/2.0, -sqrt(2.0)/2.0;
+			quatosData.frameX << -sqrt(2.0)/2.0, sqrt(2.0)/2.0, sqrt(2.0)/2.0, -sqrt(2.0)/2.0;
+			quatosData.frameY << sqrt(2.0)/2.0, sqrt(2.0)/2.0, -sqrt(2.0)/2.0, -sqrt(2.0)/2.0;
 			break;
 		case CONFIG_HEX_PLUS:
 			quatosData.frameX << 0.0,	sqrt(3.0)/2.0,	sqrt(3.0)/2.0,	0.0,	-sqrt(3.0)/2.0,	-sqrt(3.0)/2.0;
@@ -799,7 +799,7 @@ void quatosToolCalc(void) {
 	quatosData.PID <<	quatosData.Mt.col(0).transpose() / quatosData.Mt.col(0).cwiseAbs().maxCoeff(),
 			quatosData.Mt.col(2).transpose() / quatosData.Mt.col(2).cwiseAbs().maxCoeff(),
 			quatosData.Mt.col(1).transpose() / quatosData.Mt.col(1).cwiseAbs().maxCoeff(),
-			quatosData.Mt.col(3).transpose() / quatosData.Mt.col(3).cwiseAbs().maxCoeff();
+			quatosData.Mt.col(3).transpose() * quatosData.n;
 	quatosData.PID = quatosData.PID.transpose().eval() * 100.0;
 
 	if (outputPID) {

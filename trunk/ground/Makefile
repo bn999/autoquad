@@ -12,7 +12,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with AutoQuad.  If not, see <http://www.gnu.org/licenses/>.
 #
-#    Copyright © 2011, 2012, 2013  Bill Nesbitt
+#    Copyright © 2011-2014  Bill Nesbitt
 
 # Include user-specific settings file, if any, in regular Makefile format.
 # This file can set any default variable values you wish to override (all defaults are listed below).

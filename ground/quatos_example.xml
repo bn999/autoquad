@@ -138,4 +138,22 @@
 			<cube name="center" dimx="0.140" dimy="0.127" dimz="0.065" offsetx="0" offsety="0" offsetz="-0.04">1802</cube>
 		</mass>
 	</craft>
+        <!-- example of a quad_plus entered with custom geometry -->
+        <craft id="custom_craft" config="custom" motors="4">
+                <geometry>
+                        <motor port="1" rotation="+1"> 0.00, +0.235</motor>
+                        <motor port="2" rotation="-1">+0.235,  0.00</motor>
+                        <motor port="8" rotation="+1"> 0.00, -0.235</motor>
+                        <motor port="9" rotation="-1">-0.235,  0.00</motor>
+                </geometry>
+                <distance>
+                        <esc>0.117</esc>
+                </distance>
+                <mass>
+                        <motor>100</motor>
+                        <esc>20</esc>
+                        <arm>10</arm>
+                        <cube name="center" dimx="0.08" dimy="0.08" dimz="0.08" offsetx="0" offsety="0" offsetz="0">665</cube>
+                </mass>
+        </craft>
 </quatos_configuration>

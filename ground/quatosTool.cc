@@ -299,7 +299,7 @@ void parseCraft(parseContext_t *context, const XML_Char **atts) {
 					att = quatosToolFindAttr(atts, "motors");
 					if (!att || !atoi(att)) {
 						fprintf(stderr, "quatosTool: craft '%s' custom type has missing/incorrect motors attribute\n", quatosData.craftId);
-						return;
+						exit(1);
 					}
 					quatosData.n = atoi(att);
 				}
@@ -566,11 +566,6 @@ void quatosToolJCalc(Matrix3d &J, double mass, double x, double y, double z) {
 		z,	0,	-x,
 		-y,	x,	0;
 
-/*
-	S <<	0,	-z,	x,
-		z,	0,	-y,
-		-x,	y,	0;
-*/
 
 	J = J - mass*(S*S);
 }
@@ -594,8 +589,8 @@ void quatosToolShapeCalc(Matrix3d &J, object_t *obj) {
 			for (k = 0; k < z; k++)
 				quatosToolJCalc(J, mass,
 					obj->x - quatosData.offsetCG(0) - obj->dimX/2.0 + (double)i/1000.0,
-					obj->y - quatosData.offsetCG(1) - obj->dimX/2.0 + (double)j/1000.0,
-					obj->z - quatosData.offsetCG(2) - obj->dimX/2.0 + (double)k/1000.0);
+					obj->y - quatosData.offsetCG(1) - obj->dimY/2.0 + (double)j/1000.0,
+					obj->z - quatosData.offsetCG(2) - obj->dimZ/2.0 + (double)k/1000.0);
 }
 
 void quatosToolObjCalc() {
@@ -609,22 +604,39 @@ void quatosToolObjCalc() {
 	for (i = 0; i < quatosData.n; i++) {
 		// Motor
 		objs[o].mass = quatosData.massMot;
-		objs[o].x = quatosData.frameX(i) * quatosData.distMot;
-		objs[o].y = quatosData.frameY(i) * quatosData.distMot;
+		objs[o].x = quatosData.frameX(i);
+		objs[o].y = quatosData.frameY(i);
+		if (quatosData.craftType != CONFIG_CUSTOM) {
+			objs[o].x *= quatosData.distMot;
+			objs[o].y *= quatosData.distMot;
+		}
 		objs[o].z = 0.0;
 		o++;
 
 		// ESC
 		objs[o].mass = quatosData.massEsc;
-		objs[o].x = quatosData.frameX(i) * quatosData.distEsc;
-		objs[o].y = quatosData.frameY(i) * quatosData.distEsc;
-		objs[o].z = 0.0;
+		if (quatosData.craftType != CONFIG_CUSTOM) {
+			objs[o].x = quatosData.frameX(i) * quatosData.distEsc;
+			objs[o].y = quatosData.frameY(i) * quatosData.distEsc;
+			objs[o].z = 0.0;
+		}
+		else {
+			double norm = sqrt(quatosData.frameX(i)*quatosData.frameX(i) + quatosData.frameY(i)*quatosData.frameY(i));
+
+			objs[o].x = quatosData.frameX(i) / norm * quatosData.distEsc;
+			objs[o].y = quatosData.frameY(i) / norm * quatosData.distEsc;
+			objs[o].z = 0.0;
+		}
 		o++;
 
 		// ARM
 		objs[o].mass = quatosData.massArm;
-		objs[o].x = quatosData.frameX(i) * quatosData.distMot / 2.0;
-		objs[o].y = quatosData.frameY(i) * quatosData.distMot / 2.0;
+		objs[o].x = quatosData.frameX(i) / 2.0;
+		objs[o].y = quatosData.frameY(i) / 2.0;
+		if (quatosData.craftType != CONFIG_CUSTOM) {
+			objs[o].x *= quatosData.distMot;
+			objs[o].y *= quatosData.distMot;
+		}
 		objs[o].z = 0.0;
 		o++;
 	}
@@ -650,7 +662,6 @@ void quatosToolObjCalc() {
 		quatosData.offsetCG(2) += objs[i].mass * objs[i].z;
 
 		quatosData.totalMass += objs[i].mass;
-//printf("[%d] %f\n", i, objs[i].mass);
 	}
 	quatosData.offsetCG /= quatosData.totalMass;
 
@@ -661,13 +672,16 @@ void quatosToolObjCalc() {
 
 	// calculate J matrix
 	quatosData.J.setZero();
-	for (i = 0; i < o; i++)
-		if (objs[i].dimX != 0.0 && objs[i].dimY != 0.0 && objs[i].dimZ != 0.0)
+	for (i = 0; i < o; i++) {
+		if (objs[i].dimX != 0.0 && objs[i].dimY != 0.0 && objs[i].dimZ != 0.0) {
 			//  dimensioned shapes
 			quatosToolShapeCalc(quatosData.J, &objs[i]);
-		else
+		}
+		else {
 			// point masses
 			quatosToolJCalc(quatosData.J, objs[i].mass, objs[i].x - quatosData.offsetCG(0), objs[i].y - quatosData.offsetCG(1), objs[i].z - quatosData.offsetCG(2));
+		}
+	}
 }
 
 void quatosToolCalc(void) {
@@ -695,10 +709,10 @@ void quatosToolCalc(void) {
 			break;
 		case CONFIG_HEX_PLUS:
 			quatosData.frameX << 0.0,	sqrt(3.0)/2.0,	sqrt(3.0)/2.0,	0.0,	-sqrt(3.0)/2.0,	-sqrt(3.0)/2.0;
-			quatosData.frameY << 1.0, 0.5, -0.5, -1.0, -0.5, 0.5;
+			quatosData.frameY << 1.0,	0.5,		-0.5,		-1.0,	-0.5,		0.5;
 			break;
 		case CONFIG_HEX_X:
-			quatosData.frameX << -0.5,	0.5,	1.0,	0.5,	-0.5,	-1.0;
+			quatosData.frameX << -0.5,		0.5,		1.0,	0.5,		-0.5,		-1.0;
 			quatosData.frameY << sqrt(3.0)/2.0,	sqrt(3.0)/2.0,	0.0,	-sqrt(3.0)/2.0,	-sqrt(3.0)/2.0,	0.0;
 			break;
 		case CONFIG_OCTO_PLUS:
@@ -707,17 +721,26 @@ void quatosToolCalc(void) {
 			break;
 		case CONFIG_OCTO_X:
 			quatosData.frameX << cosf(247.5 *DEG_TO_RAD),	cosf(292.5 *DEG_TO_RAD),	cosf(337.5 *DEG_TO_RAD),	cosf(22.5 *DEG_TO_RAD),
-								cosf(67.5 *DEG_TO_RAD),		cosf(112.5 *DEG_TO_RAD),	cosf(157.5 *DEG_TO_RAD),	cosf(202.5 *DEG_TO_RAD);
+					     cosf(67.5 *DEG_TO_RAD),	cosf(112.5 *DEG_TO_RAD),	cosf(157.5 *DEG_TO_RAD),	cosf(202.5 *DEG_TO_RAD);
 			quatosData.frameY << cosf(337.5 *DEG_TO_RAD),	cosf(22.5 *DEG_TO_RAD),		cosf(67.5 *DEG_TO_RAD),		cosf(112.5 *DEG_TO_RAD),
-								cosf(157.5 *DEG_TO_RAD),	cosf(202.5 *DEG_TO_RAD),	cosf(247.5 *DEG_TO_RAD),	cosf(292.5 *DEG_TO_RAD);
+					     cosf(157.5 *DEG_TO_RAD),	cosf(202.5 *DEG_TO_RAD),	cosf(247.5 *DEG_TO_RAD),	cosf(292.5 *DEG_TO_RAD);
 			break;
 	}
 
 	// calc GG offset & J matrix
 	quatosToolObjCalc();
 
-	quatosData.motorX = (quatosData.frameX.transpose() * quatosData.distMot) * -1.0;
-	quatosData.motorY = (quatosData.frameY.transpose() * quatosData.distMot);
+	quatosData.motorX = quatosData.frameX.transpose() * -1.0;
+	quatosData.motorY = quatosData.frameY.transpose() * +1.0;
+
+	if (quatosData.craftType != CONFIG_CUSTOM) {
+		quatosData.motorX *= quatosData.distMot;
+		quatosData.motorY *= quatosData.distMot;
+	}
+/*
+std::cout << "quatosData.motorX: " << quatosData.motorX << std::endl;
+std::cout << "quatosData.motorY: " << quatosData.motorY << std::endl;
+*/
 
 	// adjust for CG offset
 	quatosData.motorX -= VectorXd::Ones(quatosData.n) * quatosData.offsetCG(0);

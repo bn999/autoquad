@@ -3,6 +3,7 @@
 #include <expat.h>
 #include <iostream>
 #include <math.h>
+#include <algorithm>  // std::min
 
 #define EIGEN_NO_DEBUG
 //#define EIGEN_DONT_VECTORIZE
@@ -73,6 +74,17 @@ const char *configTypes[] = {
 	"octo_plus",
 	"octo_x",
 	"custom"
+};
+
+// default config IDs for predefined frame types (from mot_mixes.xml)
+const int configIds[] = {
+	4,
+	5,
+	10,
+	11,
+	30,
+	31,
+	0
 };
 
 typedef struct {
@@ -306,9 +318,10 @@ void parseCraft(parseContext_t *context, const XML_Char **atts) {
 				att = quatosToolFindAttr(atts, "configId");
 				if (att)
 					quatosData.configId = atoi(att);
-				else
-					fprintf(stderr, "quatosTool: warning, craft '%s' is missing configId\n", quatosData.craftId);
-
+				else {
+					quatosData.configId = configIds[quatosData.craftType];
+					fprintf(stderr, "quatosTool: warning, craft '%s' is missing configId. Using default of %d\n", quatosData.craftId, quatosData.configId);
+				}
 				context->validCraft = 1;
 				resetCraft(context);
 			}
@@ -460,34 +473,34 @@ void XMLCALL endElement(void *ctx, const XML_Char *name __attribute__((__unused_
 }
 
 void quatosToolUsage(void) {
-    fprintf(stderr, "\nusage: quatosTool	[-h | --help] [-c | --craft-id <craft_id>]\n");
-    fprintf(stderr, "		[-p | --pid] [-m | --mix] [-o | --ouput <output_file>] <xml_file>\n\n");
-    fprintf(stderr, "   using -m (output .mix file type for QGC) also implies -p\n");
-    fprintf(stderr, "   using -o without an argument will create an output file named <craft_id>\n");
+	fprintf(stderr, "\nusage: quatosTool	[-h | --help] [-c | --craft-id <craft_id>]\n");
+	fprintf(stderr, "		[-p | --pid] [-m | --mix] [-o | --ouput <output_file>] <xml_file>\n\n");
+	fprintf(stderr, "   using -m (output .mix file type for QGC) also implies -p\n");
+	fprintf(stderr, "   using -o without an argument will create an output file named <craft_id>\n");
 }
 
 unsigned int quatosToolOptions(int argc, char **argv) {
-        int ch;
+	int ch;
 	char fname[256]; // output file name
 
-        /* options descriptor */
-        static struct option longopts[] = {
-                { "help",       no_argument,            NULL,           'h' },
-                { "craft-id",	required_argument,      NULL,           'c' },
-                { "pid",	no_argument,		NULL,           'p' },
+	/* options descriptor */
+	static struct option longopts[] = {
+			{ "help",		no_argument,		NULL,	'h' },
+			{ "craft-id",	required_argument,	NULL,	'c' },
+			{ "pid",		no_argument,		NULL,	'p' },
 			{ "output",		optional_argument,	NULL,	'o' },
 			{ "mix",		no_argument,		NULL,	'm' },
-                { NULL,         0,                      NULL,           0 }
-        };
+			{ NULL,			0,					NULL,	0 }
+	};
 
 	outFP = stdout;
 
 	while ((ch = getopt_long(argc, argv, "hpmo::c:", longopts, NULL)) != -1)
-                switch (ch) {
-                case 'h':
-                        quatosToolUsage();
-                        exit(0);
-                        break;
+		switch (ch) {
+		case 'h':
+			quatosToolUsage();
+			exit(0);
+			break;
 		case 'p':
 			outputPID = 1;
 			break;
@@ -515,15 +528,15 @@ unsigned int quatosToolOptions(int argc, char **argv) {
 				exit(0);
 			}
 			break;
-                case 'c':
-                        strncpy(quatosData.craftId, optarg, sizeof(quatosData.craftId));
-                        break;
-                default:
-                        quatosToolUsage();
-                        return 0;
-        }
+		case 'c':
+			strncpy(quatosData.craftId, optarg, sizeof(quatosData.craftId));
+			break;
+		default:
+			quatosToolUsage();
+			return 0;
+		}
 
-        return 1;
+	return 1;
 }
 
 int quatosToolReadXML(FILE *fp) {
@@ -690,6 +703,7 @@ void quatosToolCalc(void) {
 	MatrixXd B;
 	float t, p, r, y;
 	int i, j;
+	unsigned long portOrder = 0;
 
 	quatosData.motorX.resize(1, quatosData.n);
 	quatosData.motorY.resize(1, quatosData.n);
@@ -828,57 +842,57 @@ std::cout << "quatosData.motorY: " << quatosData.motorY << std::endl;
 	if (outputPID) {
 		displayMatrix("PID", quatosData.PID);
 
-        if (outputMIXfile) { // output .mix file for QGC (.ini file format)
-            float val;
+		if (outputMIXfile) { // output .mix file for QGC (.ini file format)
+			float val;
 
-            fprintf(outFP, "\n"); // blank line after "info" section
-            for (int ii=0; ii < 4; ii++) {  // loop over each control direction (T,P,R,Y)
-                switch (ii) {
-                case 0 :
-                    fprintf(outFP, "[Throttle]\n");
-                    break;
-                case 1 :
-                    fprintf(outFP, "[Pitch]\n");
-                    break;
-                case 2 :
-                    fprintf(outFP, "[Roll]\n");
-                    break;
-                case 3 :
-                    fprintf(outFP, "[Yaw]\n");
-                    break;
-                }
-                for (i = 1; i <= NUM_PORTS; i++) {
-                    val = 0.0f;
-                    j = quatosToolFindPort(i);
-                    if (j >= 0)
-                        val = quatosData.PID(j, ii);
+			fprintf(outFP, "\n"); // blank line after "info" section
+			for (int ii=0; ii < 4; ii++) {  // loop over each control direction (T,P,R,Y)
+				switch (ii) {
+				case 0 :
+					fprintf(outFP, "[Throttle]\n");
+					break;
+				case 1 :
+					fprintf(outFP, "[Pitch]\n");
+					break;
+				case 2 :
+					fprintf(outFP, "[Roll]\n");
+					break;
+				case 3 :
+					fprintf(outFP, "[Yaw]\n");
+					break;
+				}
+				for (i = 1; i <= NUM_PORTS; i++) {
+					val = 0.0f;
+					j = quatosToolFindPort(i);
+					if (j >= 0)
+						val = quatosData.PID(j, ii);
 
-                    fprintf(outFP, "Motor%d=%g\n", i, round(val * 10000)/10000); // %g prints no trailing decimals when they're zero, unlike %f
-                }
-                fprintf(outFP, "\n"); // blank line ends section
-            }
-        } else { // output generated matrix and #defines for DEFAULT_MOT_PWRD params
-		for (i = 1; i <= NUM_PORTS; i++) {
-			t = 0.0;
-			p = 0.0;
-			r = 0.0;
-			y = 0.0;
-
-			j = quatosToolFindPort(i);
-			if (j >= 0) {
-				t = quatosData.PID(j, 0);
-				p = quatosData.PID(j, 1);
-				r = quatosData.PID(j, 2);
-				y = quatosData.PID(j, 3);
+					fprintf(outFP, "Motor%d=%g\n", i, round(val * 10000)/10000); // %g prints no trailing decimals when they're zero, unlike %f
+				}
+				fprintf(outFP, "\n"); // blank line ends section
 			}
-			fprintf(outFP, "#define DEFAULT_MOT_PWRD_%02d_T\t%+f\n", i, t);
-			fprintf(outFP, "#define DEFAULT_MOT_PWRD_%02d_P\t%+f\n", i, p);
-			fprintf(outFP, "#define DEFAULT_MOT_PWRD_%02d_R\t%+f\n", i, r);
-			fprintf(outFP, "#define DEFAULT_MOT_PWRD_%02d_Y\t%+f\n", i, y);
+		} else { // output generated matrix and #defines for DEFAULT_MOT_PWRD params
+			for (i = 1; i <= NUM_PORTS; i++) {
+				t = 0.0;
+				p = 0.0;
+				r = 0.0;
+				y = 0.0;
+
+				j = quatosToolFindPort(i);
+				if (j >= 0) {
+					t = quatosData.PID(j, 0);
+					p = quatosData.PID(j, 1);
+					r = quatosData.PID(j, 2);
+					y = quatosData.PID(j, 3);
+				}
+				fprintf(outFP, "#define DEFAULT_MOT_PWRD_%02d_T\t%+f\n", i, t);
+				fprintf(outFP, "#define DEFAULT_MOT_PWRD_%02d_P\t%+f\n", i, p);
+				fprintf(outFP, "#define DEFAULT_MOT_PWRD_%02d_R\t%+f\n", i, r);
+				fprintf(outFP, "#define DEFAULT_MOT_PWRD_%02d_Y\t%+f\n", i, y);
+			}
 		}
 	}
-	}
-	// otherwise show results
+	// output Quatos results
 	else {
 		displayMatrix("Mt", quatosData.Mt);
 		for (i = 1; i <= NUM_PORTS; i++) {
@@ -922,17 +936,48 @@ std::cout << "quatosData.motorY: " << quatosData.motorY << std::endl;
 		fprintf(outFP, "#define DEFAULT_QUATOS_J_PITCH\t%g\n", quatosData.J(1, 1));
 		fprintf(outFP, "#define DEFAULT_QUATOS_J_YAW\t%g\n", quatosData.J(2, 2));
 	}
+
+	// output port ordering hint for GCS GUI
+	if (!outputMIXfile) {
+
+		// save port order (bit mask: first 8 bits are confgId, next 4 bits is first port used, next 4 is 2nd port used, etc., up to 32 bits (6 ports plus id))
+		i = std::min(5, quatosData.ports.size()-1);
+		for (; i >= 0; --i)
+			portOrder |= static_cast<unsigned long>(quatosData.ports(i)) << (8 + (4 * i)); // save 8 bits for configId
+
+		portOrder |= quatosData.configId;
+
+		float val = *(float *) &portOrder;
+		fprintf(outFP, "#define DEFAULT_MOT_FRAME\t%.20g\n", val);
+
+//		unsigned long poTest = *(unsigned long *) &val;
+//		std::cout << "configId: " << quatosData.configId << "; quatosData.ports: " << quatosData.ports
+//				<< ";\n portOrder: " << portOrder << "; as float: " << val << "; float-to-ulong: " << poTest << std::endl;
+
+		// if more than 6 motors, need 2nd bitmask to store the other motor positions
+		// 2nd port order (bit mask: first 4 bits is 7th port used, next 4 is 8th port used, etc., up to 32 bits (8 ports))
+		if (quatosData.ports.size() > 6) {
+			portOrder = 0;
+			i = std::min(7, quatosData.ports.size()-7);
+			for (; i >= 0; --i)
+				portOrder |= static_cast<unsigned long>(quatosData.ports(i+6)) << (4 * i);
+
+			val = *(float *) &portOrder;
+			fprintf(outFP, "#define DEFAULT_MOT_FRAME_H\t%.20g\n", val);
+		}
+
+	}
 }
 
 int main(int argc, char **argv) {
 	FILE *fp;
 
-        if (!quatosToolOptions(argc, argv)) {
-                fprintf(stderr, "Init failed, aborting\n");
-                return 0;
-        }
-        argc -= optind;
-        argv += optind;
+	if (!quatosToolOptions(argc, argv)) {
+		fprintf(stderr, "Init failed, aborting\n");
+		return 0;
+	}
+	argc -= optind;
+	argv += optind;
 
 	if (argc < 1) {
 		fprintf(stderr, "quatosTool: requires xml file argument, aborting\n");
@@ -946,13 +991,19 @@ int main(int argc, char **argv) {
 	if (quatosToolReadXML(fp) < 0)
 		return -1;
 
-    if (outputMIXfile) {
-        fprintf(outFP, "[META]\n");
-        fprintf(outFP, "ConfigId=%d\n", quatosData.configId);
-    }
+	if (outputMIXfile) {
+		fprintf(outFP, "[META]\n");
+		fprintf(outFP, "ConfigId=%d\n", quatosData.configId);
+		// output port ordering hint for GCS GUI
+		fprintf(outFP, "PortOrder=");
+		for (int i=0; i < quatosData.ports.size(); ++i)
+			fprintf(outFP, "%d,", (int)quatosData.ports(i));
+		fprintf(outFP, "\n");
+	}
 
 	fprintf(outFP, "Craft=%s\n", quatosData.craftId);
 	fprintf(outFP, "Motors=%d\n", quatosData.n);
+
 /*
 	std::cout << "quatosData.ports: " << quatosData.ports << std::endl;
 	std::cout << "quatosData.propDir: " << quatosData.propDir << std::endl;

@@ -30,8 +30,11 @@ BUILD_PATH ?= ../build
 #LIBPATH ?= /opt/local/lib
 #INCPATH ?= /opt/local/include
 #MAVLINK ?= ../mavlink/include/autoquad
+#EXPAT ?= $(LIBPATH)
 #EXPAT_LIB ?= expat
+#PLPLOT ?= $(LIBPATH)
 #PLPLOT_LIB ?= plplotd
+#PLPLOT_INC ?= $(INCPATH)
 #EIGEN ?= /usr/local/include/eigen3
 
 # Windows
@@ -40,16 +43,23 @@ INCPATH ?= .
 MAVLINK ?= $(LIBPATH)/mavlink/include/autoquad
 EXPAT ?= $(LIBPATH)/expat
 EXPAT_LIB ?= libexpat
+#PLPLOT ?= $(LIBPATH)/plplot/lib
+#PLPLOT_LIB ?= libplplotd
+#PLPLOT_INC ?= $(LIBPATH)
 EIGEN ?= $(LIBPATH)/eigen
 
+WITH_PLPLOT =
+ifdef PLPLOT
+	WITH_PLPLOT = -I$(PLPLOT_INC) -L$(PLPLOT) -l$(PLPLOT_LIB) -DHAS_PLPLOT
+endif
 
 ALL_CFLAGS = $(CFLAGS)
 
 # Targets
 
-all: loader telemetryDump logDump batCal quatosTool
+all: loader telemetryDump logDump batCal quatosTool escLogDump quatosLogDump
 
-all-win: logDump-win quatosTool-win
+all-win: logDump batCal quatosTool escLogDump quatosLogDump
 
 loader: $(BUILD_PATH)/loader.o $(BUILD_PATH)/serial.o $(BUILD_PATH)/stmbootloader.o
 	$(CC) -o $(BUILD_PATH)/loader $(ALL_CFLAGS) $(BUILD_PATH)/loader.o $(BUILD_PATH)/serial.o $(BUILD_PATH)/stmbootloader.o
@@ -57,20 +67,20 @@ loader: $(BUILD_PATH)/loader.o $(BUILD_PATH)/serial.o $(BUILD_PATH)/stmbootloade
 telemetryDump: $(BUILD_PATH)/telemetryDump.o $(BUILD_PATH)/serial.o
 	$(CC) -o $(BUILD_PATH)/telemetryDump $(ALL_CFLAGS) $(BUILD_PATH)/telemetryDump.o $(BUILD_PATH)/serial.o
 
-logDump: $(BUILD_PATH)/logDump.o $(BUILD_PATH)/serial.o $(BUILD_PATH)/logger.o $(BUILD_PATH)/logDump_mavlink.o
-	$(CC) -o $(BUILD_PATH)/logDump $(ALL_CFLAGS) $(BUILD_PATH)/logDump.o $(BUILD_PATH)/serial.o $(BUILD_PATH)/logger.o -L$(LIBPATH) -l$(PLPLOT_LIB) -DHAS_PLPLOT $(BUILD_PATH)/logDump_mavlink.o
-
-logDump-win: $(BUILD_PATH)/logDump-win.o $(BUILD_PATH)/logger.o $(BUILD_PATH)/logDump_mavlink.o
-	$(CC) -o $(BUILD_PATH)/logDump.exe $(ALL_CFLAGS) $(BUILD_PATH)/logDump-win.o $(BUILD_PATH)/logger.o $(BUILD_PATH)/logDump_mavlink.o
+logDump: $(BUILD_PATH)/logDump.o $(BUILD_PATH)/logger.o $(BUILD_PATH)/logDump_mavlink.o
+	$(CC) -o $(BUILD_PATH)/logDump $(ALL_CFLAGS) $(BUILD_PATH)/logDump.o $(BUILD_PATH)/logger.o $(BUILD_PATH)/logDump_mavlink.o $(WITH_PLPLOT)
 
 batCal: $(BUILD_PATH)/batCal.o $(BUILD_PATH)/logger.o
-	$(CC) -o batCal $(ALL_CFLAGS) $(BUILD_PATH)/batCal.o $(BUILD_PATH)/logger.o -L$(LIBPATH) -l$(PLPLOT_LIB)
+	$(CC) -o $(BUILD_PATH)/batCal $(ALL_CFLAGS) $(BUILD_PATH)/batCal.o $(BUILD_PATH)/logger.o $(WITH_PLPLOT)
 
 quatosTool: $(BUILD_PATH)/quatosTool.o
-	$(CC) -o $(BUILD_PATH)/quatosTool $(ALL_CFLAGS) $(BUILD_PATH)/quatosTool.o -l$(EXPAT_LIB)
+	$(CC) -o $(BUILD_PATH)/quatosTool $(ALL_CFLAGS) $(BUILD_PATH)/quatosTool.o -L$(EXPAT) -l$(EXPAT_LIB)
 
-quatosTool-win: $(BUILD_PATH)/quatosTool-win.o
-	$(CC) -o $(BUILD_PATH)/quatosTool.exe $(ALL_CFLAGS) $(BUILD_PATH)/quatosTool.o -L$(EXPAT) -l$(EXPAT_LIB)
+escLogDump: $(BUILD_PATH)/escLogDump.o
+	$(CC) -o $(BUILD_PATH)/escLogDump $(ALL_CFLAGS) $(BUILD_PATH)/escLogDump.o
+
+quatosLogDump: $(BUILD_PATH)/quatosLogDump.o
+	$(CC) -o $(BUILD_PATH)/quatosLogDump $(ALL_CFLAGS) $(BUILD_PATH)/quatosLogDump.o
 
 
 
@@ -86,26 +96,26 @@ $(BUILD_PATH)/serial.o: serial.c serial.h
 $(BUILD_PATH)/telemetryDump.o: telemetryDump.c telemetryDump.h
 	$(CC) -c $(ALL_CFLAGS) telemetryDump.c -o $@
 
-$(BUILD_PATH)/logDump.o: logDump.c logDump_templates.h logger.h
-	$(CC) -c $(ALL_CFLAGS) logDump.c -o $@ -I$(INCPATH) -I$(MAVLINK)
+$(BUILD_PATH)/logDump.o: logDump.c logDump_templates.h logDump.h logger.h logDump_mavlink.h
+	$(CC) -c $(ALL_CFLAGS) logDump.c -o $@ -I$(INCPATH) -I$(MAVLINK) $(WITH_PLPLOT)
 
-$(BUILD_PATH)/logDump-win.o: logDump.c logDump_templates.h logDump.h logger.h logDump_mavlink.h
-	$(CC) -c $(ALL_CFLAGS) logDump.c -o $@ -I$(MAVLINK)
+$(BUILD_PATH)/logDump_mavlink.o: logDump_mavlink.cpp logDump_mavlink.h
+	$(CC) -c $(ALL_CFLAGS) logDump_mavlink.cpp -o $@ -I$(MAVLINK)
 
 $(BUILD_PATH)/batCal.o: batCal.cc
-	$(CC) -c $(ALL_CFLAGS) batCal.cc -o $@ -I$(INCPATH) -I$(EIGEN)
+	$(CC) -c $(ALL_CFLAGS) batCal.cc -o $@ -I$(INCPATH) -I$(EIGEN) $(WITH_PLPLOT)
 
 $(BUILD_PATH)/quatosTool.o: quatosTool.cc
-	$(CC) -c $(ALL_CFLAGS) quatosTool.cc -o $@ -I$(EIGEN)
-
-$(BUILD_PATH)/quatosTool-win.o: quatosTool.cc
-	$(CC) -c -g -O2 quatosTool.cc -o $(BUILD_PATH)/quatosTool.o -I$(EXPAT)/src -I$(EIGEN)
+	$(CC) -c $(ALL_CFLAGS) quatosTool.cc -o $@ -I$(EXPAT)/src -I$(EIGEN)
 
 $(BUILD_PATH)/logger.o: logger.c logger.h
 	$(CC) -c $(ALL_CFLAGS) logger.c -o $@
 
-$(BUILD_PATH)/logDump_mavlink.o: logDump_mavlink.cpp logDump_mavlink.h
-	$(CC) -c $(ALL_CFLAGS) logDump_mavlink.cpp -o $@ -I$(MAVLINK)
+$(BUILD_PATH)/escLogDump.o: escLogDump.c
+	$(CC) -c $(ALL_CFLAGS) escLogDump.c -o $@
+
+$(BUILD_PATH)/quatosLogDump.o: quatosLogDump.c
+	$(CC) -c $(ALL_CFLAGS) quatosLogDump.c -o $@
 
 clean:
 	rm -f $(BUILD_PATH)/loader $(BUILD_PATH)/telemetryDump $(BUILD_PATH)/logDump $(BUILD_PATH)/batCal $(BUILD_PATH)/quatosTool $(BUILD_PATH)/*.o $(BUILD_PATH)/*.exe

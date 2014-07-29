@@ -17,7 +17,9 @@
 */
 
 #include "logger.h"
-#include "plplot/plplot.h"
+#ifdef HAS_PLPLOT
+	#include "plplot/plplot.h"
+#endif
 #include <getopt.h>
 #include <stdlib.h>
 #include <Eigen/Core>
@@ -35,6 +37,7 @@ double zeroSOC;
 int numRecs;
 
 void batCalPlot(MatrixXd &ab) {
+#ifdef HAS_PLPLOT
 	char s[256];
 	float yMin, yMax;
 	int i;
@@ -87,6 +90,7 @@ void batCalPlot(MatrixXd &ab) {
 
 	free(xVals);
 	free(yVals);
+#endif
 }
 
 void batCalInterpolate(void) {
@@ -139,7 +143,7 @@ int batCalLoadLog(char *logFile) {
         FILE *lf;
 	loggerRecord_t l;
 
-	lf = fopen(logFile, "r");
+	lf = fopen(logFile, "rb");
 
 	if (lf == NULL) {
 		fprintf(stderr, "batCal: cannot open logfile '%s'\n", logFile);

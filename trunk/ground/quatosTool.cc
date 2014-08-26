@@ -585,25 +585,30 @@ void quatosToolJCalc(Matrix3d &J, double mass, double x, double y, double z) {
 
 // only cuboid so far
 void quatosToolShapeCalc(Matrix3d &J, object_t *obj) {
+	double sign[3];
 	double mass;
 	int x, y, z;
 	int i, j, k;
-	
+
 	// divide dimentions into mm cubes
 	x = obj->dimX * 1000;
 	y = obj->dimY * 1000;
 	z = obj->dimZ * 1000;
 
+	sign[0] = (obj->x < 0.0) ? -1.0 : +1.0;
+	sign[1] = (obj->y < 0.0) ? -1.0 : +1.0;
+	sign[2] = (obj->z < 0.0) ? -1.0 : +1.0;
+
 	mass = obj->mass / (double)(x * y * z);
-//printf("(%d, %d, %d) total mass %f point-mass used: %e\n", x, y, z, obj->mass, mass);
+	//printf("(%d, %d, %d) total mass %f point-mass used: %e\n", x, y, z, obj->mass, mass);
 
 	for (i = 0; i < x; i++)
 		for (j = 0; j < y; j++)
 			for (k = 0; k < z; k++)
 				quatosToolJCalc(J, mass,
-					obj->x - quatosData.offsetCG(0) - obj->dimX/2.0 + (double)i/1000.0,
-					obj->y - quatosData.offsetCG(1) - obj->dimY/2.0 + (double)j/1000.0,
-					obj->z - quatosData.offsetCG(2) - obj->dimZ/2.0 + (double)k/1000.0);
+					obj->x - quatosData.offsetCG(0) - (obj->dimX/2.0 + (double)i/1000.0) * sign[0],
+					obj->y - quatosData.offsetCG(1) - (obj->dimY/2.0 + (double)j/1000.0) * sign[1],
+					obj->z - quatosData.offsetCG(2) - (obj->dimZ/2.0 + (double)k/1000.0) * sign[2]);
 }
 
 void quatosToolObjCalc() {

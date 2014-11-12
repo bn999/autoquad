@@ -59,13 +59,14 @@ void batCalPlot(MatrixXd &ab) {
 	}
 
 	plinit();
+	plschr(0.0, 0.75);
 	plcol0(15);
 	plenv(100.0, 0.0, yMin, yMax, 0, 0);
 	pllab("SOC (%)", "Volts", "Battery Voltage vs State of Charge");
 
 	sprintf(s, "y = %5.1f + %5.1f*x + %5.1f*x^2 + %5.1f*x^3 + %5.1f*x^4 + %5.1f*x^5",
 		ab(0, 0), ab(1, 0), ab(2, 0), ab(3, 0), ab(4, 0), ab(5, 0));
-        plptex(95.0, yMax-(yMax-yMin)/10.0, -10, 0, 0, s);
+    plptex(95.0, yMax-(yMax-yMin)/10.0, -10, 0, 0, s);
 	printf("%s\n", s);
 
 	// plot data
@@ -152,12 +153,12 @@ int batCalLoadLog(char *logFile) {
 	else {
 		numRecs = 0;
 		while (loggerReadEntry(lf, &l) != EOF) {
-			if (l.vIn < zeroSOC)
+			if (l.data[LOG_ADC_VIN] < zeroSOC)
 				break;
 
-			if (l.throttle > 0) {
+			if (l.data[LOG_MOT_THROTTLE] > 0) {
 				logData = (logData_t *)realloc(logData, sizeof(logData_t) * (numRecs+1));
-				logData[numRecs].vIn = l.vIn;
+				logData[numRecs].vIn = l.data[LOG_ADC_VIN];
 				numRecs++;
 			}
 		}

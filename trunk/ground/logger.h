@@ -25,7 +25,7 @@ extern "C" {
 
 #include <stdio.h>
 
-enum {
+enum log_fields {
 	LOG_LASTUPDATE = 0,
 	LOG_VOLTAGE0,
 	LOG_VOLTAGE1,
@@ -130,10 +130,126 @@ enum {
 	LOG_ACC_BIAS_X,
 	LOG_ACC_BIAS_Y,
 	LOG_ACC_BIAS_Z,
+    LOG_CURRENT_PDB,
+    LOG_CURRENT_EXT,
+    LOG_VIN_PDB,
+    LOG_UKF_ALT_VEL,
 	LOG_NUM_IDS
 };
 
-enum {
+static const char *loggerFieldLabels[] = {
+	"LASTUPDATE",
+	"VOLTAGE0",
+	"VOLTAGE1",
+	"VOLTAGE2",
+	"VOLTAGE3",
+	"VOLTAGE4",
+	"VOLTAGE5",
+	"VOLTAGE6",
+	"VOLTAGE7",
+	"VOLTAGE8",
+	"VOLTAGE9",
+	"VOLTAGE10",
+	"VOLTAGE11",
+	"VOLTAGE12",
+	"VOLTAGE13",
+	"VOLTAGE14",
+	"IMU_RATEX",
+	"IMU_RATEY",
+	"IMU_RATEZ",
+	"IMU_ACCX",
+	"IMU_ACCY",
+	"IMU_ACCZ",
+	"IMU_MAGX",
+	"IMU_MAGY",
+	"IMU_MAGZ",
+	"GPS_PDOP",
+	"GPS_HDOP",
+	"GPS_VDOP",
+	"GPS_TDOP",
+	"GPS_NDOP",
+	"GPS_EDOP",
+	"GPS_ITOW",
+	"GPS_POS_UPDATE",
+	"GPS_LAT",
+	"GPS_LON",
+	"GPS_HEIGHT",
+	"GPS_HACC",
+	"GPS_VACC",
+	"GPS_VEL_UPDATE",
+	"GPS_VELN",
+	"GPS_VELE",
+	"GPS_VELD",
+	"GPS_SACC",
+	"ADC_PRESSURE1",
+	"ADC_PRESSURE2",
+	"ADC_TEMP0",
+	"ADC_TEMP1",
+	"ADC_TEMP2",
+	"ADC_VIN",
+	"ADC_MAG_SIGN",
+	"UKF_Q1",
+	"UKF_Q2",
+	"UKF_Q3",
+	"UKF_Q4",
+	"UKF_POSN",
+	"UKF_POSE",
+	"UKF_POSD",
+	"UKF_PRES_ALT",
+	"UKF_ALT (m)",
+	"UKF_VELN (m/s)",
+	"UKF_VELE (m/s)",
+	"UKF_VELD (m/s)",
+	"MOT_MOTOR0",
+	"MOT_MOTOR1",
+	"MOT_MOTOR2",
+	"MOT_MOTOR3",
+	"MOT_MOTOR4",
+	"MOT_MOTOR5",
+	"MOT_MOTOR6",
+	"MOT_MOTOR7",
+	"MOT_MOTOR8",
+	"MOT_MOTOR9",
+	"MOT_MOTOR10",
+	"MOT_MOTOR11",
+	"MOT_MOTOR12",
+	"MOT_MOTOR13",
+	"MOT_THROTTLE",
+	"MOT_PITCH",
+	"MOT_ROLL",
+	"MOT_YAW",
+	"RADIO_QUALITY",
+	"RADIO_CHANNEL0",
+	"RADIO_CHANNEL1",
+	"RADIO_CHANNEL2",
+	"RADIO_CHANNEL3",
+	"RADIO_CHANNEL4",
+	"RADIO_CHANNEL5",
+	"RADIO_CHANNEL6",
+	"RADIO_CHANNEL7",
+	"RADIO_CHANNEL8",
+	"RADIO_CHANNEL9",
+	"RADIO_CHANNEL10",
+	"RADIO_CHANNEL11",
+	"RADIO_CHANNEL12",
+	"RADIO_CHANNEL13",
+	"RADIO_CHANNEL14",
+	"RADIO_CHANNEL15",
+	"RADIO_CHANNEL16",
+	"RADIO_CHANNEL17",
+	"RADIO_ERRORS",
+	"GMBL_TRIGGER",
+	"ACC_BIAS_X",
+	"ACC_BIAS_Y",
+	"ACC_BIAS_Z",
+	"CURRENT_PDB",
+	"CURRENT_EXT",
+	"VIN_PDB",
+	"UKF_ALT_VEL",
+	0 // terminate
+};
+
+enum log_field_types {
 	LOG_TYPE_DOUBLE = 0,
 	LOG_TYPE_FLOAT,
 	LOG_TYPE_U32,
@@ -165,49 +281,23 @@ typedef struct {
 #define LOG_VOLT_TEMP2		13
 #define LOG_VOLT_TEMP3		14
 
+#define LOG_NUM_VOLTAGES	15
+#define LOG_NUM_MOTORS		14
+#define LOG_NUM_RADIO_CHAN	18
+
 // legacy
 #define LOG_VOLT_TEMP		LOG_VOLT_TEMP1
 #define LOG_VOLT_PRES		LOG_VOLT_PRES1
 
 typedef struct {
-	unsigned int lastUpdate;
-	float voltages[15];
-	float rate[3];			// IMU_RATEX, Y, Z
-	float acc[3];			// IMU_ACCX, Y, Z
-	float mag[3];			// IMU_MAGX, Y, Z
-	float magSign;			// ADC_MAG_SIGN
-	float pressure[2];		// ADC_PRESSURE1, 2
-	float temp[1];			// ADC_TEMP0
-	float vIn;				// ADC_VIN
-	float quat[4];			// UKF_Q1, 2, 3, 4
-	float ukfAlt;			// UKF_ALT
-	float pressAlt;			// UKF_PRES_ALT
-	float pos[3];			// UKF_POSN, E, D
-	float vel[3];			// UKF_VELN, E, D
-	float accBias[3];		// ACC_BIAS_X, Y, Z
-
-	unsigned int gpsPosUpdate;
-	unsigned int gpsVelUpdate;
-	double lat, lon;		// GPS_LAT, LON
-	float gpsAlt;			// GPS_HEIGHT
-	float gpsPosAcc;		// GPS_HACC
-	float gpsVel[3];		// GPS_VELN, E, D
-	float gpsVelAcc;		// GPS_SACC
-	float gpsVAcc;			// GPS_VACC
-	unsigned int gpsItow;		// GPS_ITOW
-	float gpsDops[6]; 		// GPS_(P)DOP,H,V,T,N,E
-
-	short int motors[14];	// MOT_MOTOR0 - 13
-	short int throttle;		// MOT_THROTTLE
-	float motPRY[3];		// MOT_PITCH, ROLL, YAW
-
-	float radioQuality;
-	short int radioChannels[18];
-	unsigned short radioErrors;
-
-	unsigned short gimbalTrig;
+	float quat[4];									// LOG_UKF_Qn
+	float voltages[LOG_NUM_VOLTAGES];				// LOG_VOLTAGEn
+	short int motors[LOG_NUM_MOTORS];				// LOG_MOT_MOTORn
+	short int radioChannels[LOG_NUM_RADIO_CHAN];	// LOG_RADIO_CHANNELn
 	
-	char ckA, ckB;
+	double data[LOG_NUM_IDS];						// all data values for record
+	char ckA, ckB;									// checksums
+
 } __attribute__((packed)) loggerRecord_t;
 
 extern int loggerReadEntry(FILE *fp, loggerRecord_t *r);

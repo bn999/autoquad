@@ -53,14 +53,14 @@ void mavlinkDo(loggerRecord_t *l) {
 	// StatusType result;
 	mavlink_message_t msg;
 	uint16_t msgLen;
-	uint64_t ts = ((uint64_t)towStartTime*1000 + (uint64_t)logDumpGetValue(l, GPS_UTC_TIME)) * 1000;
-	double micros = logDumpGetValue(l, MICROS);
+	uint64_t ts = ((uint64_t)towStartTime*1000 + (uint64_t)logDumpGetValue(l, FLD_GPS_UTC_TIME)) * 1000;
+	double micros = logDumpGetValue(l, LOG_LASTUPDATE);
 
 	//fprintf(stderr, "logDump: TIMESTAMP: %llu; START: %u; TOW: %lld\n", ts, towStartTime, (uint64_t)logDumpGetValue(l, GPS_UTC_TIME));
 
 	mavlinkData.status = MAV_STATE_ACTIVE;
 
-	double modeChan = logDumpGetValue(l, RADIO_CHANNEL6);
+	double modeChan = logDumpGetValue(l, LOG_RADIO_CHANNEL5);
 	if (modeChan < 250) 		// manual
 		mavlinkData.mode = MAV_MODE_FLAG_SAFETY_ARMED + MAV_MODE_FLAG_MANUAL_INPUT_ENABLED;
 	else if (modeChan > 250) 	// mission

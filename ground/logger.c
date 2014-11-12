@@ -20,6 +20,7 @@
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <string.h>
 
 loggerFields_t *loggerFields;
@@ -36,10 +37,8 @@ void loggerDecodePacket(char *buf, loggerRecord_t *r) {
 
 	for (i = 0; i < loggerNumFields; i++) {
 		fieldId = loggerFields[i].fieldId;
+		// store some fields in arrays, for convenience
 		switch (fieldId) {
-			case LOG_LASTUPDATE:
-				r->lastUpdate = *(unsigned int *)buf;
-				break;
 			case LOG_VOLTAGE0:
 			case LOG_VOLTAGE1:
 			case LOG_VOLTAGE2:
@@ -57,97 +56,11 @@ void loggerDecodePacket(char *buf, loggerRecord_t *r) {
 			case LOG_VOLTAGE14:
 				r->voltages[fieldId-LOG_VOLTAGE0] = *(float *)buf;
 				break;
-			case LOG_IMU_RATEX:
-			case LOG_IMU_RATEY:
-			case LOG_IMU_RATEZ:
-				r->rate[fieldId-LOG_IMU_RATEX] = *(float *)buf;
-				break;
-			case LOG_IMU_ACCX:
-			case LOG_IMU_ACCY:
-			case LOG_IMU_ACCZ:
-				r->acc[fieldId-LOG_IMU_ACCX] = *(float *)buf;
-				break;
-			case LOG_IMU_MAGX:
-			case LOG_IMU_MAGY:
-			case LOG_IMU_MAGZ:
-				r->mag[fieldId-LOG_IMU_MAGX] = *(float *)buf;
-				break;
-			case LOG_GPS_PDOP:
-			case LOG_GPS_HDOP:
-			case LOG_GPS_VDOP:
-			case LOG_GPS_TDOP:
-			case LOG_GPS_NDOP:
-			case LOG_GPS_EDOP:
-				r->gpsDops[fieldId-LOG_GPS_PDOP] = *(float *)buf;
-				break;
-			case LOG_GPS_ITOW:
-				r->gpsItow = *(unsigned int *)buf;
-				break;
-			case LOG_GPS_POS_UPDATE:
-				r->gpsPosUpdate = *(unsigned int *)buf;
-				break;
-			case LOG_GPS_LAT:
-				r->lat = *(double *)buf;
-				break;
-			case LOG_GPS_LON:
-				r->lon = *(double *)buf;
-				break;
-			case LOG_GPS_HEIGHT:
-				r->gpsAlt = *(float *)buf;
-				break;
-			case LOG_GPS_HACC:
-				r->gpsPosAcc = *(float *)buf;
-				break;
-			case LOG_GPS_VACC:
-				r->gpsVAcc = *(float *)buf;
-				break;
-			case LOG_GPS_VEL_UPDATE:
-				r->gpsVelUpdate = *(unsigned int *)buf;
-				break;
-			case LOG_GPS_VELN:
-			case LOG_GPS_VELE:
-			case LOG_GPS_VELD:
-				r->gpsVel[fieldId-LOG_GPS_VELN] = *(float *)buf;
-				break;
-			case LOG_GPS_SACC:
-				r->gpsVelAcc = *(float *)buf;
-				break;
-			case LOG_ADC_PRESSURE1:
-				r->pressure[0] = *(float *)buf;
-				break;
-			case LOG_ADC_PRESSURE2:
-				r->pressure[1] = *(float *)buf;
-				break;
-			case LOG_ADC_TEMP0:
-				r->temp[0] = *(float *)buf;
-				break;
-			case LOG_ADC_VIN:
-				r->vIn = *(float *)buf;
-				break;
-			case LOG_ADC_MAG_SIGN:
-				r->magSign = (float)*(char *)buf;
-				break;
 			case LOG_UKF_Q1:
 			case LOG_UKF_Q2:
 			case LOG_UKF_Q3:
 			case LOG_UKF_Q4:
 				r->quat[fieldId-LOG_UKF_Q1] = *(float *)buf;
-				break;
-			case LOG_UKF_POSN:
-			case LOG_UKF_POSE:
-			case LOG_UKF_POSD:
-				r->pos[fieldId-LOG_UKF_POSN] = *(float *)buf;
-				break;
-			case LOG_UKF_PRES_ALT:
-				r->pressAlt = *(float *)buf;
-				break;
-			case LOG_UKF_ALT:
-				r->ukfAlt = *(float *)buf;
-				break;
-			case LOG_UKF_VELN:
-			case LOG_UKF_VELE:
-			case LOG_UKF_VELD:
-				r->vel[fieldId-LOG_UKF_VELN] = *(float *)buf;
 				break;
 			case LOG_MOT_MOTOR0:
 			case LOG_MOT_MOTOR1:
@@ -163,18 +76,7 @@ void loggerDecodePacket(char *buf, loggerRecord_t *r) {
 			case LOG_MOT_MOTOR11:
 			case LOG_MOT_MOTOR12:
 			case LOG_MOT_MOTOR13:
-				r->motors[fieldId-LOG_MOT_MOTOR0] = *(short int *)buf;
-				break;
-			case LOG_MOT_THROTTLE:
-				r->throttle = (short int)*(float *)buf;
-				break;
-			case LOG_MOT_PITCH:
-			case LOG_MOT_ROLL:
-			case LOG_MOT_YAW:
-				r->motPRY[fieldId-LOG_MOT_PITCH] = *(float *)buf;
-				break;
-			case LOG_RADIO_QUALITY:
-				r->radioQuality = *(float *)buf;
+				r->motors[fieldId-LOG_MOT_MOTOR0] = *(uint16_t *)buf;
 				break;
 			case LOG_RADIO_CHANNEL0:
 			case LOG_RADIO_CHANNEL1:
@@ -194,36 +96,41 @@ void loggerDecodePacket(char *buf, loggerRecord_t *r) {
 			case LOG_RADIO_CHANNEL15:
 			case LOG_RADIO_CHANNEL16:
 			case LOG_RADIO_CHANNEL17:
-				r->radioChannels[fieldId-LOG_RADIO_CHANNEL0] = *(short int *)buf;
-				break;
-			case LOG_RADIO_ERRORS:
-				r->radioErrors = *(unsigned short *)buf;
-				break;
-			case LOG_GMBL_TRIGGER:
-				r->gimbalTrig = *(unsigned short *)buf;
-				break;
-			case LOG_ACC_BIAS_X:
-			case LOG_ACC_BIAS_Y:
-			case LOG_ACC_BIAS_Z:
-				r->accBias[fieldId-LOG_ACC_BIAS_X] = *(float *)buf;
+				r->radioChannels[fieldId-LOG_RADIO_CHANNEL0] = *(int16_t *)buf;
 				break;
 		}
 
 		switch (loggerFields[i].fieldType) {
 			case LOG_TYPE_DOUBLE:
+				r->data[fieldId] = *(double *)buf;
 				buf += 8;
 				break;
 			case LOG_TYPE_FLOAT:
+				r->data[fieldId] = *(float *)buf;
+				buf += 4;
+				break;
 			case LOG_TYPE_U32:
+				r->data[fieldId] = *(uint32_t *)buf;
+				buf += 4;
+				break;
 			case LOG_TYPE_S32:
+				r->data[fieldId] = *(int32_t *)buf;
 				buf += 4;
 				break;
 			case LOG_TYPE_U16:
+				r->data[fieldId] = *(uint16_t *)buf;
+				buf += 2;
+				break;
 			case LOG_TYPE_S16:
+				r->data[fieldId] = *(int16_t *)buf;
 				buf += 2;
 				break;
 			case LOG_TYPE_U8:
+				r->data[fieldId] = *(uint8_t *)buf;
+				buf += 1;
+				break;
 			case LOG_TYPE_S8:
+				r->data[fieldId] = *(int8_t *)buf;
 				buf += 1;
 				break;
 		}

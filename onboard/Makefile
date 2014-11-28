@@ -81,6 +81,9 @@ QUATOS ?= 0
 # Build with specific default parameters file (eg. CONFIG_FILE=config_default_m4.h)
 CONFIG_FILE ?= 0
 
+# Build with specific board (hardware) definitions file (eg. BOARD_FILE=board_custom.h)
+BOARD_FILE ?= 0
+
 # Add preprocessor definitions to CC_VARS (eg. CC_ADD_VARS=-DCOMM_DISABLE_FLOW_CONTROL1 to disable flow control on USART 1)
 CC_ADD_VARS ?=
 
@@ -193,9 +196,11 @@ CC_VARS += -DBOARD_VERSION=$(BOARD_VER) -DBOARD_REVISION=$(BOARD_REV)
 ifneq ($(DIMU_VER), 0)
 	CC_VARS += -DDIMU_VERSION=$(subst .,,$(DIMU_VER))
 endif
-
 ifneq ($(CONFIG_FILE), 0)
 	CC_VARS += -DCONFIG_DEFAULTS_FILE=\"$(CONFIG_FILE)\"
+endif
+ifneq ($(BOARD_FILE), 0)
+	CC_VARS += -DBOARD_HEADER_FILE=\"$(BOARD_FILE)\"
 endif
 
 # Additional target(s) to build based on conditionals

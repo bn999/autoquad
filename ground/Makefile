@@ -20,7 +20,7 @@
 -include Makefile.user
 
 CC ?= g++
-CFLAGS ?= -g -O3
+CFLAGS ?= -g -O3 -Wall
 #LDFLAGS ?=
 
 # BUILD_PATH = .
@@ -117,7 +117,7 @@ $(BUILD_PATH)/plotter.o: plotter.cc plotter.h
 	cp plotter*.pal $(BUILD_PATH)/
 
 $(BUILD_PATH)/escLogDump.o: escLogDump.c
-	$(CC) -c $(ALL_CFLAGS) escLogDump.c -o $@
+	$(CC) -c $(ALL_CFLAGS) -Wno-attributes escLogDump.c -o $@
 
 $(BUILD_PATH)/quatosLogDump.o: quatosLogDump.cc plotter.h
 	$(CC) -c $(ALL_CFLAGS) quatosLogDump.cc -o $@

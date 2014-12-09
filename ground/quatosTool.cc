@@ -97,6 +97,7 @@ typedef struct {
 } parseContext_t;
 
 typedef struct {
+	int validCraft;
 	char craftId[256];
 	int craftType;
 	int n;				// number of motors
@@ -145,7 +146,7 @@ void displayMatrix(const char *name, _Matrix_Type_ &m) {
 }
 
 template<typename _Matrix_Type_>
-bool pseudoInverse(const _Matrix_Type_ &a, _Matrix_Type_ &result, double epsilon = std::numeric_limits<typename _Matrix_Type_::Scalar>::epsilon()) {
+void pseudoInverse(const _Matrix_Type_ &a, _Matrix_Type_ &result, double epsilon = std::numeric_limits<typename _Matrix_Type_::Scalar>::epsilon()) {
 	Eigen::JacobiSVD<_Matrix_Type_> svd = a.jacobiSvd(Eigen::ComputeThinU |Eigen::ComputeThinV);
 
 	typename _Matrix_Type_::Scalar tolerance =
@@ -213,25 +214,25 @@ void parse(XML_Parser parser, char c, int isFinal) {
 
 void resetCraft(parseContext_t *context) {
 	if (!quatosData.n) {
-	int n;
-	switch (quatosData.craftType) {
-		case CONFIG_QUAD_PLUS:
-		case CONFIG_QUAD_X:
-			n = 4;
-			break;
-		case CONFIG_HEX_PLUS:
-			case CONFIG_HEX_X:
-			n = 6;
-			break;
-			case CONFIG_OCTO_X:
-			case CONFIG_OCTO_PLUS:
-				n = 8;
-			break;
-		default:
-			context->validCraft = 0;
-			break;
-	}
-	quatosData.n = n;
+		int n = 0;
+		switch (quatosData.craftType) {
+			case CONFIG_QUAD_PLUS:
+			case CONFIG_QUAD_X:
+				n = 4;
+				break;
+			case CONFIG_HEX_PLUS:
+				case CONFIG_HEX_X:
+				n = 6;
+				break;
+				case CONFIG_OCTO_X:
+				case CONFIG_OCTO_PLUS:
+					n = 8;
+				break;
+			default:
+				context->validCraft = 0;
+				break;
+		}
+		quatosData.n = n;
 	}
 
 	quatosData.ports.setZero(1, quatosData.n);
@@ -247,6 +248,8 @@ void resetCraft(parseContext_t *context) {
 	quatosData.massArm = DEFAULT_MASS_ARM;
 	quatosData.distEsc = DEFAULT_DIST_ESC;
 	quatosData.distMot = DEFAULT_DIST_MOTOR;
+
+	quatosData.validCraft = 1;
 
 }
 
@@ -320,7 +323,8 @@ void parseCraft(parseContext_t *context, const XML_Char **atts) {
 					quatosData.configId = atoi(att);
 				else {
 					quatosData.configId = configIds[quatosData.craftType];
-					fprintf(stderr, "quatosTool: warning, craft '%s' is missing configId. Using default of %d\n", quatosData.craftId, quatosData.configId);
+					if (outputMIXfile)
+						fprintf(stderr, "quatosTool: warning, craft '%s' is missing configId. Using default of %d\n", quatosData.craftId, quatosData.configId);
 				}
 				context->validCraft = 1;
 				resetCraft(context);
@@ -993,8 +997,15 @@ int main(int argc, char **argv) {
 		return -1;
 	}
 
+	memset(&quatosData, 0, sizeof(quatosData));
+
 	if (quatosToolReadXML(fp) < 0)
 		return -1;
+
+	if (!quatosData.validCraft) {
+		fprintf(stderr, "quatosTool: craft is not valid, aborting\n");
+		return -1;
+	}
 
 	if (outputMIXfile) {
 		fprintf(outFP, "[META]\n");

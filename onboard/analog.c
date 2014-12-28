@@ -19,6 +19,7 @@
 #include "analog.h"
 #include "comm.h"
 #include "util.h"
+#include "config.h"
 #include <stdio.h>
 
 analogStruct_t analogData;
@@ -37,7 +38,7 @@ void analogDecode(void) {
     for (i = 0; i < ANALOG_CHANNELS; i++)
 	analogData.voltages[i] = analogData.rawChannels[i] * ANALOG_DIVISOR;
 
-    analogData.vIn = analogData.voltages[ANALOG_VOLTS_VIN] * ANALOG_VIN_SLOPE;
+    analogData.vIn = analogData.voltages[analogData.vInSourceIndex] * analogData.vInSlope;
 #ifdef ANALOG_EXT_VOLT_SLOPE
     analogData.extVolt = analogData.voltages[ANALOG_VOLTS_EXT_VOLT] * ANALOG_EXT_VOLT_SLOPE;
 #endif
@@ -48,7 +49,18 @@ void analogDecode(void) {
 #endif
 
 void analogInit(void) {
+
 #ifdef ANALOG_DMA_STREAM
+
+    analogData.vInSourceIndex = ANALOG_VOLTS_VIN;
+    analogData.vInSlope = ANALOG_VIN_SLOPE;
+#ifdef ANALOG_EXT_VOLT_SLOPE
+    if ((int)p[SPVR_VIN_SOURCE] == 1) {
+	analogData.vInSourceIndex = ANALOG_VOLTS_EXT_VOLT;
+	analogData.vInSlope = ANALOG_EXT_VOLT_SLOPE;
+    }
+#endif
+
     DMA_InitTypeDef DMA_InitStructure;
     ADC_CommonInitTypeDef ADC_CommonInitStructure;
     ADC_InitTypeDef ADC_InitStructure;
@@ -108,7 +120,7 @@ void analogInit(void) {
 
     yield(10);
     analogDecode();
-#endif
+#endif // ANALOG_DMA_STREAM
 
     // determine LiPo battery cell count
     if (analogData.vIn < 5.0f)

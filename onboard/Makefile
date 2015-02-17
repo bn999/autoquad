@@ -104,6 +104,9 @@ AQLIB_PATH ?= ..
 # Generated MAVLink header files (https://github.com/AutoQuad/mavlink/tree/master/include)
 MAVINC_PATH ?= $(AQLIB_PATH)/mavlink/include/autoquad
 
+# Additional C objects to compile
+EXTRA_OBJECTS ?= 0
+
 # shell commands
 EXE_AWK ?= gawk 
 EXE_MKDIR ?= mkdir
@@ -129,9 +132,8 @@ BIN_PATH = $(BUILD_PATH)/$(BUILD_TYPE)
 # command to execute (later, if necessary) for increasing build number in buildnum.h
 CMD_BUILDNUMBER = $(shell $(EXE_AWK) '$$2 ~ /BUILDNUMBER/{ $$NF=$$NF+1 } 1' $(SRC_PATH)/buildnum.h > $(SRC_PATH)/tmp_buildnum.h && mv $(SRC_PATH)/tmp_buildnum.h $(SRC_PATH)/buildnum.h)
 
-# get current revision and build numbers
+# get current version and build numbers
 FW_VER := $(shell $(EXE_AWK) 'BEGIN { FS = "[ \"]+" }$$2 ~ /FI(MR|RM)WARE_VERSION/{print $$3}' $(SRC_PATH)/getbuildnum.h)
-REV_NUM := $(shell $(EXE_AWK) '$$2 ~ /REVISION/{print $$4}' $(SRC_PATH)/buildnum.h)
 BUILD_NUM := $(shell $(EXE_AWK) '$$2 ~ /BUILDNUMBER/{print $$NF}' $(SRC_PATH)/buildnum.h)
 ifeq ($(INCR_BUILDNUM), 1)
 	BUILD_NUM := $(shell expr $(BUILD_NUM) + 1)
@@ -143,11 +145,11 @@ ifeq ($(DEBUG_BUILD), 1)
 	BIN_NAME := $(BIN_NAME)-debug
 	INCR_BUILDNUM = 0
 else
-	BIN_NAME := $(BIN_NAME)v$(FW_VER).r$(REV_NUM).b$(BUILD_NUM)-hwv$(BOARD_VER).$(BOARD_REV)
+	BIN_NAME := $(BIN_NAME)v$(FW_VER).$(BUILD_NUM)-hwv$(BOARD_VER).$(BOARD_REV)
 	ifneq ($(DIMU_VER), 0)
 		BIN_NAME := $(BIN_NAME)-dimu$(DIMU_VER)
 	endif
-	ifeq ($(QUATOS), 1)
+	ifneq ($(QUATOS), 0)
 		BIN_NAME := $(BIN_NAME)-quatos
 	endif
 	ifneq ($(BIN_SUFFIX), 0)
@@ -238,15 +240,6 @@ EXTRA_LIB_FILES = libm_v7em_fpv4_sp_d16_hard_t_le_eabi.a libc_v7em_fpv4_sp_d16_h
 
 EXTRA_LIBS := $(addprefix $(CC_LIB_PATH)/, $(EXTRA_LIB_FILES))
 
-ifeq ($(QUATOS), 1)
-	QLIB = quatos.a
-#	ifeq ($(BOARD_VER), 8)
-#		QLIB = quatos-board8.3.a
-#	endif
-	EXTRA_LIBS += $(OTHERLIB_PATH)/$(QLIB)
-	CFLAGS += -DUSE_QUATOS
-endif
-
 
 # AQ code objects to create (correspond to .c source to compile)
 AQ_OBJS := 1wire.o adc.o algebra.o analog.o aq_init.o aq_mavlink.o aq_timer.o alt_ukf.o \
@@ -262,6 +255,17 @@ AQ_OBJS := 1wire.o adc.o algebra.o analog.o aq_init.o aq_mavlink.o aq_timer.o al
 	sdio.o serial.o signaling.o spektrum.o spi.o srcdkf.o supervisor.o \
 	telemetry.o ublox.o \
 	system_stm32f4xx.o STM32_Startup.o thumb_crt0.o
+
+ifneq ($(QUATOS), 0)
+	ifeq ($(QUATOS), 1)
+		EXTRA_LIBS += $(OTHERLIB_PATH)/quatos.a
+	endif
+	CFLAGS += -DUSE_QUATOS
+endif
+
+ifneq ($(EXTRA_OBJECTS), 0)
+	AQ_OBJS += $(EXTRA_OBJECTS)
+endif
 
 # CoOS
 COOS_OBJS = arch.o core.o event.o flag.o kernelHeap.o mbox.o mm.o mutex.o port.o queue.o sem.o serviceReq.o task.o time.o timer.o utility.o
